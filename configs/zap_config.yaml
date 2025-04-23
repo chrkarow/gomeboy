@@ -1,0 +1,23 @@
+level: 'info'
+development: false
+disableCaller: false
+encoding: 'console'
+encoderConfig:
+    messageKey: 'msg'
+    levelKey: 'level'
+    timeKey: 'ts'
+    nameKey: 'logger'
+    callerKey: 'caller'
+    stacktraceKey: 'stacktrace'
+    skipLineEnding: false
+    lineEnding: "\n"
+    levelEncoder: 'capital'
+    timeEncoder: 'iso8601'
+    durationEncoder: 'string'
+    callerEncoder: 'short'
+    nameEncoder: 'full'
+    consoleSeparator: ' | '
+outputPaths:
+    - 'stdout'
+errorOutputPaths:
+    - 'stderr'
