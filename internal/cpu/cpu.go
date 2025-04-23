@@ -24,8 +24,8 @@ type (
 		memory     *memory.Memory
 		interrupts *interrupts.Interrupts
 
-		stopped bool
-		cycles  uint64
+		stopped    bool
+		stepCycles int
 	}
 
 	instruction struct {
@@ -331,10 +331,11 @@ func (cpu *CPU) Reset() {
 	cpu.pc = 0x0000
 }
 
-func (cpu *CPU) Step() uint64 {
+// Step executes one instruction and returns the CPU cycles needed for the execution.
+func (cpu *CPU) Step() int {
 
 	if cpu.stopped {
-		return cpu.cycles
+		return 0
 	}
 
 	stepLogger := log.L().WithLazy(log.String("pc", fmt.Sprintf("0x%04X", cpu.pc)))
@@ -360,29 +361,33 @@ func (cpu *CPU) Step() uint64 {
 
 	stepLogger.Info(instr.toString(operand))
 	instr.execute(cpu, operand)
-	cpu.cycles += uint64(instr.ticks)
+	cpu.stepCycles += int(instr.ticks)
 
-	return cpu.cycles
+	defer func() {
+		cpu.stepCycles = 0
+	}()
+
+	return cpu.stepCycles
 }
 
 func (cpu *CPU) HandleVblankInterrupt() {
-	cpu.call(0x40, &cpu.cycles, always())
+	cpu.call(0x40, &cpu.stepCycles, always())
 }
 
 func (cpu *CPU) HandleLcdStatInterrupt() {
-	cpu.call(0x48, &cpu.cycles, always())
+	cpu.call(0x48, &cpu.stepCycles, always())
 }
 
 func (cpu *CPU) HandleTimerInterrupt() {
-	cpu.call(0x50, &cpu.cycles, always())
+	cpu.call(0x50, &cpu.stepCycles, always())
 }
 
 func (cpu *CPU) HandleSerialInterrupt() {
-	cpu.call(0x58, &cpu.cycles, always())
+	cpu.call(0x58, &cpu.stepCycles, always())
 }
 
 func (cpu *CPU) HandleJoypadInterrupt() {
-	cpu.call(0x60, &cpu.cycles, always())
+	cpu.call(0x60, &cpu.stepCycles, always())
 }
 
 // Glossary:
@@ -536,7 +541,7 @@ func rla(cpu *CPU, _ uint16) {
 
 // 0x18
 func jrn(cpu *CPU, operand uint16) {
-	relativeJump(&cpu.pc, int8(operand), &cpu.cycles, always())
+	relativeJump(&cpu.pc, int8(operand), &cpu.stepCycles, always())
 }
 
 // 0x19
@@ -584,7 +589,7 @@ func rra(cpu *CPU, _ uint16) {
 
 // 0x20
 func jrnzn(cpu *CPU, operand uint16) {
-	relativeJump(&cpu.pc, int8(operand), &cpu.cycles, onZNotSet(cpu))
+	relativeJump(&cpu.pc, int8(operand), &cpu.stepCycles, onZNotSet(cpu))
 }
 
 // 0x21
@@ -652,7 +657,7 @@ func daa(cpu *CPU, _ uint16) {
 
 // 0x28
 func jrzn(cpu *CPU, operand uint16) {
-	relativeJump(&cpu.pc, int8(operand), &cpu.cycles, onZSet(cpu))
+	relativeJump(&cpu.pc, int8(operand), &cpu.stepCycles, onZSet(cpu))
 }
 
 // 0x29
@@ -685,7 +690,7 @@ func cpl(cpu *CPU, _ uint16) {
 
 // 0x30
 func jrncn(cpu *CPU, operand uint16) {
-	relativeJump(&cpu.pc, int8(operand), &cpu.cycles, onCNotSet(cpu))
+	relativeJump(&cpu.pc, int8(operand), &cpu.stepCycles, onCNotSet(cpu))
 }
 
 // 0x31
@@ -718,7 +723,7 @@ func scf(cpu *CPU, _ uint16) {
 
 // 0x38
 func jrcn(cpu *CPU, operand uint16) {
-	relativeJump(&cpu.pc, int8(operand), &cpu.cycles, onCSet(cpu))
+	relativeJump(&cpu.pc, int8(operand), &cpu.stepCycles, onCSet(cpu))
 }
 
 // 0x39
@@ -1162,7 +1167,7 @@ func cpA(cpu *CPU, _ uint16) { subtract8BitValue(&cpu.a, cpu.a.GetValue(), false
 
 // 0xC0
 func retnz(cpu *CPU, _ uint16) {
-	cpu.returnFromSubroutine(&cpu.cycles, onZNotSet(cpu))
+	cpu.returnFromSubroutine(&cpu.stepCycles, onZNotSet(cpu))
 }
 
 // 0xC1
@@ -1170,15 +1175,15 @@ func popBC(cpu *CPU, _ uint16) { cpu.bc.SetValue(cpu.popFromStack()) }
 
 // 0xC2
 func jpnznn(cpu *CPU, operand uint16) {
-	jump(&cpu.pc, operand, &cpu.cycles, onZNotSet(cpu))
+	jump(&cpu.pc, operand, &cpu.stepCycles, onZNotSet(cpu))
 }
 
 // 0xC3
-func jpnn(cpu *CPU, operand uint16) { jump(&cpu.pc, operand, &cpu.cycles, always()) }
+func jpnn(cpu *CPU, operand uint16) { jump(&cpu.pc, operand, &cpu.stepCycles, always()) }
 
 // 0xC4
 func callnznn(cpu *CPU, operand uint16) {
-	cpu.call(operand, &cpu.cycles, onZNotSet(cpu))
+	cpu.call(operand, &cpu.stepCycles, onZNotSet(cpu))
 }
 
 // 0xC5
@@ -1195,27 +1200,27 @@ func rst00(cpu *CPU, _ uint16) {
 
 // 0xC8
 func retz(cpu *CPU, _ uint16) {
-	cpu.returnFromSubroutine(&cpu.cycles, onZSet(cpu))
+	cpu.returnFromSubroutine(&cpu.stepCycles, onZSet(cpu))
 }
 
 // 0xC9
-func ret(cpu *CPU, _ uint16) { cpu.returnFromSubroutine(&cpu.cycles, always()) }
+func ret(cpu *CPU, _ uint16) { cpu.returnFromSubroutine(&cpu.stepCycles, always()) }
 
 // 0xCA
 func jpznn(cpu *CPU, operand uint16) {
-	jump(&cpu.pc, operand, &cpu.cycles, onZSet(cpu))
+	jump(&cpu.pc, operand, &cpu.stepCycles, onZSet(cpu))
 }
 
 // 0xCB
-func cbn(cpu *CPU, operand uint16) { executeExtendedInstruction(cpu, &cpu.cycles, byte(operand)) }
+func cbn(cpu *CPU, operand uint16) { executeExtendedInstruction(cpu, &cpu.stepCycles, byte(operand)) }
 
 // 0xCC
 func callznn(cpu *CPU, operand uint16) {
-	cpu.call(operand, &cpu.cycles, onZSet(cpu))
+	cpu.call(operand, &cpu.stepCycles, onZSet(cpu))
 }
 
 // 0xCD
-func callnn(cpu *CPU, operand uint16) { cpu.call(operand, &cpu.cycles, always()) }
+func callnn(cpu *CPU, operand uint16) { cpu.call(operand, &cpu.stepCycles, always()) }
 
 // 0xCE
 func adcn(cpu *CPU, operand uint16) { add8BitValue(&cpu.a, byte(operand), cpu.f.isSet(c), &cpu.f) }
@@ -1228,7 +1233,7 @@ func rst08(cpu *CPU, _ uint16) {
 
 // 0xD0
 func retnc(cpu *CPU, _ uint16) {
-	cpu.returnFromSubroutine(&cpu.cycles, onCNotSet(cpu))
+	cpu.returnFromSubroutine(&cpu.stepCycles, onCNotSet(cpu))
 }
 
 // 0xD1
@@ -1236,14 +1241,14 @@ func popDE(cpu *CPU, _ uint16) { cpu.de.SetValue(cpu.popFromStack()) }
 
 // 0xD2
 func jpncnn(cpu *CPU, operand uint16) {
-	jump(&cpu.pc, operand, &cpu.cycles, onCNotSet(cpu))
+	jump(&cpu.pc, operand, &cpu.stepCycles, onCNotSet(cpu))
 }
 
 // 0xD3 UNDEFINED
 
 // 0xD4
 func callncnn(cpu *CPU, operand uint16) {
-	cpu.call(operand, &cpu.cycles, onCNotSet(cpu))
+	cpu.call(operand, &cpu.stepCycles, onCNotSet(cpu))
 }
 
 // 0xD5
@@ -1260,7 +1265,7 @@ func rst10(cpu *CPU, _ uint16) {
 
 // 0xD8
 func retc(cpu *CPU, _ uint16) {
-	cpu.returnFromSubroutine(&cpu.cycles, onCSet(cpu))
+	cpu.returnFromSubroutine(&cpu.stepCycles, onCSet(cpu))
 }
 
 func reti(cpu *CPU, _ uint16) {
@@ -1270,14 +1275,14 @@ func reti(cpu *CPU, _ uint16) {
 
 // 0xDA
 func jpcnn(cpu *CPU, operand uint16) {
-	jump(&cpu.pc, operand, &cpu.cycles, onCSet(cpu))
+	jump(&cpu.pc, operand, &cpu.stepCycles, onCSet(cpu))
 }
 
 // 0xDB UNDEFINED
 
 // 0xDC
 func callcnn(cpu *CPU, operand uint16) {
-	cpu.call(operand, &cpu.cycles, onCSet(cpu))
+	cpu.call(operand, &cpu.stepCycles, onCSet(cpu))
 }
 
 // 0xDD UNDEFINED
@@ -1367,7 +1372,7 @@ func addSPn(cpu *CPU, operand uint16) {
 
 // 0xE9
 func jpHL(cpu *CPU, _ uint16) {
-	jump(&cpu.pc, cpu.hl.GetValue(), &cpu.cycles, always())
+	jump(&cpu.pc, cpu.hl.GetValue(), &cpu.stepCycles, always())
 }
 
 // 0xEA
@@ -1608,7 +1613,7 @@ func (cpu *CPU) decrementMemoryLocation(addressRegister *Register, flags *flags)
 	flags.setFlag(n)
 }
 
-func relativeJump(pc *uint16, offset int8, cycles *uint64, predicate func() bool) {
+func relativeJump(pc *uint16, offset int8, cycles *int, predicate func() bool) {
 	// if condition is not met don't jump
 	if !predicate() {
 		return
@@ -1620,19 +1625,19 @@ func relativeJump(pc *uint16, offset int8, cycles *uint64, predicate func() bool
 		*pc += uint16(offset)
 	}
 
-	*cycles += 4 // jumping takes additional 4 cycles
+	*cycles += 4 // jumping takes additional 4 stepCycles
 
 	log.L().Debug(fmt.Sprintf(" <<PC set to 0x%04X>>", *pc))
 }
 
-func jump(pc *uint16, target uint16, cycles *uint64, predicate func() bool) {
+func jump(pc *uint16, target uint16, cycles *int, predicate func() bool) {
 	// if condition is not met don't jump
 	if !predicate() {
 		return
 	}
 
 	*pc = target
-	*cycles += 4 // jumping takes additional 4 cycles
+	*cycles += 4 // jumping takes additional 4 stepCycles
 
 	log.L().Debug(fmt.Sprintf(" <<PC set to 0x%04X>>", *pc))
 }
@@ -1791,17 +1796,17 @@ func (cpu *CPU) popFromStack() uint16 {
 	return value
 }
 
-func (cpu *CPU) returnFromSubroutine(cycles *uint64, predicate func() bool) {
+func (cpu *CPU) returnFromSubroutine(cycles *int, predicate func() bool) {
 	if predicate() {
 		cpu.pc = cpu.popFromStack()
-		*cycles += 12 // Stack access takes 12 additional cycles
+		*cycles += 12 // Stack access takes 12 additional stepCycles
 	}
 }
 
-func (cpu *CPU) call(operand uint16, cycles *uint64, predicate func() bool) {
+func (cpu *CPU) call(operand uint16, cycles *int, predicate func() bool) {
 	if predicate() {
 		cpu.pushToStack(cpu.pc)
-		jump(&cpu.pc, operand, cycles, always()) // adds 4 cycles
-		*cycles += 8                             // add 8 more cycles to get to 12 additional cycles in case of branching
+		jump(&cpu.pc, operand, cycles, always()) // adds 4 stepCycles
+		*cycles += 8                             // add 8 more stepCycles to get to 12 additional stepCycles in case of branching
 	}
 }

@@ -17,7 +17,9 @@ type Interrupts struct {
 }
 
 func New() *Interrupts {
-	i := &Interrupts{}
+	i := &Interrupts{
+		flags: 0xE1,
+	}
 	i.handlers = append(i.handlers, &loggingHandlers{})
 	return i
 }

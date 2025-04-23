@@ -1,63 +1,43 @@
 package main
 
 import (
-	"gameboy-emulator/internal/cartridge"
+	"gameboy-emulator/internal"
 	"gameboy-emulator/internal/cpu"
 	"gameboy-emulator/internal/gpu"
 	"gameboy-emulator/internal/interrupts"
+	"gameboy-emulator/internal/joypad"
 	"gameboy-emulator/internal/memory"
 	"gameboy-emulator/internal/timer"
-	"github.com/stretchr/testify/assert/yaml"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 	"os"
 )
 
-//TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.</p>
-
 func main() {
-
+	// Setup Logger
 	logger := createLogger()
 	defer logger.Sync()
 
 	undo := zap.ReplaceGlobals(logger)
 	defer undo()
 
+	// Load BIOS
 	bios, err := os.ReadFile("roms/dmg_boot.bin")
 	if err != nil {
 		panic(err)
 	}
 
+	// Wire dependencies
 	inter := interrupts.New()
+	joyp := joypad.New(inter)
 	tim := timer.New(inter)
 	lcd := gpu.New(inter)
-	mem := memory.New(inter, tim, lcd, (*[0x100]byte)(bios))
+	mem := memory.New(inter, tim, lcd, joyp, (*[0x100]byte)(bios))
 	processor := cpu.New(mem, inter)
 
-	mem.InsertGameCartridge(cartridge.LoadCartridgeImage("roms/Tetris.gb"))
+	emulator := internal.NewEmulator(inter, joyp, tim, lcd, mem, processor)
 
-	ui := NewUserInterface(lcd)
-
-	go func() {
-		var lastUpdateCycles uint64
-		var refreshCounter int
-
-		for {
-			currentCycles := processor.Step()
-			tim.UpdateTimer(currentCycles)
-			lcd.UpdateDisplay(currentCycles)
-			inter.HandleInterrupt()
-
-			refreshCounter += int(currentCycles - lastUpdateCycles)
-			lastUpdateCycles = currentCycles
-
-			if refreshCounter >= 69905 {
-				refreshCounter %= 69905
-				ui.UpdateFrame()
-			}
-		}
-	}()
-
+	ui := NewUserInterface(emulator)
 	ui.ShowAndRun()
 }
 

@@ -321,12 +321,12 @@ var extendedInstructions = [256]extendedInstruction{
 	{"SET 7, A", func(cpu *CPU) { cpu.a.SetValue(set(cpu.a.GetValue(), 7)) }, 8}, // 0xff
 }
 
-func executeExtendedInstruction(cpu *CPU, ticks *uint64, optCode byte) {
+func executeExtendedInstruction(cpu *CPU, ticks *int, optCode byte) {
 	instr := extendedInstructions[optCode]
 	log.L().Info(instr.disassembly)
 
 	instr.execute(cpu)
-	*ticks += uint64(instr.ticks)
+	*ticks += int(instr.ticks)
 }
 
 func shiftLeft(value byte, flags *flags) byte {

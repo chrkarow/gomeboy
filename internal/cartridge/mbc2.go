@@ -1,6 +1,9 @@
 package cartridge
 
-import log "go.uber.org/zap"
+import (
+	"gameboy-emulator/internal/bit"
+	log "go.uber.org/zap"
+)
 
 // MBC2 supports ROM sizes up to 2 Mbit (16 banks of 0x4000 bytes) and includes an internal
 // 512x4 bit RAM array, which is its unique feature.
@@ -41,7 +44,7 @@ func (mbc *mbc2) HandleBanking(address uint16, data byte) {
 		return
 	}
 
-	if address&0x100 == 0x100 { // if least significant bit of upper address byte is one ...
+	if bit.IsSet16(address, 8) { // if least significant bit of upper address byte is one ...
 		mbc.currentROMBank = data & 0x0F // ...lower 4 bits of written value encode the ROM romBank
 
 		if mbc.currentROMBank == 0x00 { // if ROM romBank should ever be set to 0 it is treated as 1

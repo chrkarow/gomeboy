@@ -1,6 +1,7 @@
 package timer
 
 import (
+	"gameboy-emulator/internal/bit"
 	"gameboy-emulator/internal/interrupts"
 )
 
@@ -10,13 +11,13 @@ const dividerThreshold int = 256
 //
 // Source: https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
 type Timer struct {
-	timerCounter     int
-	dividerCounter   int
-	lastUpdateCycles uint64
-	tima             byte // Timer counter
-	tma              byte // Timer modulo
-	tac              byte // Timer control
-	div              byte // Divider
+	timerCounter   int
+	dividerCounter int
+
+	tima byte // Timer counter
+	tma  byte // Timer modulo
+	tac  byte // Timer control
+	div  byte // Divider
 
 	interrupts *interrupts.Interrupts
 }
@@ -24,21 +25,20 @@ type Timer struct {
 func New(inter *interrupts.Interrupts) *Timer {
 	return &Timer{
 		interrupts: inter,
+		tac:        0xF8, // Initial values taken from https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/boot_hwio-dmgABCmgb.s
+		div:        0xAD,
 	}
 }
 
-func (t *Timer) UpdateTimer(currentCycles uint64) {
+func (t *Timer) UpdateTimer(stepCycles int) {
 
-	cyclesSinceLastUpdate := int(currentCycles - t.lastUpdateCycles)
-	t.lastUpdateCycles = currentCycles
-
-	t.doUpdateDivider(cyclesSinceLastUpdate)
+	t.doUpdateDivider(stepCycles)
 
 	if !t.isTimerEnabled() {
 		return
 	}
 
-	t.doUpdateTimer(cyclesSinceLastUpdate)
+	t.doUpdateTimer(stepCycles)
 }
 
 func (t *Timer) GetDiv() byte {
@@ -120,5 +120,5 @@ func (t *Timer) getUpdateThreshold() int {
 }
 
 func (t *Timer) isTimerEnabled() bool {
-	return t.tac&0x04 == 0x04 // bit 2 (starting from 0) has to be set
+	return bit.IsSet8(t.tac, 2) // bit 2 has to be set
 }

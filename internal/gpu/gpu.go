@@ -1,10 +1,15 @@
 package gpu
 
 import (
+	"gameboy-emulator/internal/bit"
 	"gameboy-emulator/internal/interrupts"
+	"sort"
 )
 
 const (
+	OAMSize int = 0xA0
+
+	screenXResolution        int = 160
 	scanlineCounterThreshold int = 456
 
 	hblankMode byte = 0
@@ -15,30 +20,38 @@ const (
 
 type (
 	GPU struct {
-		lastUpdateCycles uint64
-		scanlineCounter  int
+		scanlineCounter int
 
-		vram [0x2000]byte
+		vram [0x2000]byte  // Video RAM
+		oam  [OAMSize]byte // Object Attribute Memory
 
 		// Contains the 384 possible tiles which consist of 8x8 pixels. The contained values are the
 		// color indices (possible values 0-3)
-		tileSet [384][8][8]byte
+		tileSet   [384][8][8]byte
+		spriteSet [40]sprite
+		screen    [144][screenXResolution]byte
 
-		screen [144][160]byte
-
-		control            byte    // LCDC (0xFF40)
-		status             byte    // STAT (0xFF41)
-		scrollY            byte    // SCY (0xFF42)
-		scrollX            byte    // SCX (0xFF43)
-		currentLine        byte    // LY (0xFF44)
-		currentLineCompare byte    // LYC (0xFF45)
-		bgPalette          [4]byte // BGP (0xFF47) as array for easier access
-		objPalette0        [4]byte // OBP0 (0xFF48) as array for easier access
-		objPalette1        [4]byte // OBP1 (0xFF49) as array for easier access
-		windowY            byte    // WY (0xFF4A)
-		windowX            byte    // WX (0xFF4B)
+		control            byte       // LCDC (0xFF40)
+		status             byte       // STAT (0xFF41)
+		scrollY            byte       // SCY (0xFF42)
+		scrollX            byte       // SCX (0xFF43)
+		currentLine        byte       // LY (0xFF44)
+		currentLineCompare byte       // LYC (0xFF45)
+		bgPalette          [4]byte    // BGP (0xFF47) as array for easier access
+		objPalettes        [2][4]byte // 0 = OBP0 (0xFF48), 1 = OBP1 (0xFF48) in nested arrays for easier access
+		windowY            byte       // WY (0xFF4A)
+		windowX            byte       // WX (0xFF4B)
 
 		interrupts *interrupts.Interrupts
+	}
+
+	sprite struct {
+		xPos         int
+		yPos         int
+		yFlip        bool
+		xFlip        bool
+		tileIndex    byte
+		paletteIndex byte
 	}
 )
 
@@ -46,20 +59,22 @@ func New(inter *interrupts.Interrupts) *GPU {
 	return &GPU{
 		interrupts:      inter,
 		scanlineCounter: scanlineCounterThreshold,
+		control:         0x91,
+		status:          0x80,
+		currentLine:     0x0A,
+		bgPalette:       [4]byte{0x3, 0x3, 0x3, 0x0},
+		screen:          splashScreen,
 	}
 }
 
-func (g *GPU) UpdateDisplay(currentCycles uint64) {
-	cyclesSinceLastUpdate := int(currentCycles - g.lastUpdateCycles)
-	g.lastUpdateCycles = currentCycles
-
+func (g *GPU) UpdateDisplay(stepCycles int) {
 	g.updateLCDStatus()
 
 	if !g.isLCDEnabled() {
 		return
 	}
 
-	g.scanlineCounter += cyclesSinceLastUpdate
+	g.scanlineCounter += stepCycles
 
 	// Advance scanline by one and react to change
 	if g.scanlineCounter >= scanlineCounterThreshold {
@@ -95,6 +110,15 @@ func (g *GPU) WriteVRam(address uint16, data byte) {
 
 func (g *GPU) ReadVRam(address uint16) byte {
 	return g.vram[address]
+}
+
+func (g *GPU) WriteOAM(address uint16, data byte) {
+	g.oam[address] = data
+	g.updateSpriteSet(address)
+}
+
+func (g *GPU) ReadOAM(address uint16) byte {
+	return g.oam[address]
 }
 
 func (g *GPU) GetControl() byte {
@@ -163,28 +187,28 @@ func (g *GPU) SetBackgroundPalette(data byte) {
 
 // GetObjectPalette0 returns the value as byte by constructing it from the 4 indices of the palette array
 func (g *GPU) GetObjectPalette0() byte {
-	return g.objPalette0[3]<<6 | g.objPalette0[2]<<4 | g.objPalette0[1]<<2 | g.objPalette0[0]
+	return g.objPalettes[0][3]<<6 | g.objPalettes[0][2]<<4 | g.objPalettes[0][1]<<2 | g.objPalettes[0][0]
 }
 
 // SetObjectPalette0 splits the given value directly into the palette array to allow for easier access while rendering
 func (g *GPU) SetObjectPalette0(data byte) {
-	g.objPalette0[3] = data & 0xC0 >> 6
-	g.objPalette0[2] = data & 0x30 >> 4
-	g.objPalette0[1] = data & 0x0C >> 2
-	g.objPalette0[0] = data & 0x03
+	g.objPalettes[0][3] = data & 0xC0 >> 6
+	g.objPalettes[0][2] = data & 0x30 >> 4
+	g.objPalettes[0][1] = data & 0x0C >> 2
+	g.objPalettes[0][0] = data & 0x03
 }
 
 // GetObjectPalette1 returns the value as byte by constructing it from the 4 indices of the palette array
 func (g *GPU) GetObjectPalette1() byte {
-	return g.objPalette1[3]<<6 | g.objPalette1[2]<<4 | g.objPalette1[1]<<2 | g.objPalette1[0]
+	return g.objPalettes[1][3]<<6 | g.objPalettes[1][2]<<4 | g.objPalettes[1][1]<<2 | g.objPalettes[1][0]
 }
 
 // SetObjectPalette1 splits the given value directly into the palette array to allow for easier access while rendering
 func (g *GPU) SetObjectPalette1(data byte) {
-	g.objPalette1[3] = data & 0xC0 >> 6
-	g.objPalette1[2] = data & 0x30 >> 4
-	g.objPalette1[1] = data & 0x0C >> 2
-	g.objPalette1[0] = data & 0x03
+	g.objPalettes[1][3] = data & 0xC0 >> 6
+	g.objPalettes[1][2] = data & 0x30 >> 4
+	g.objPalettes[1][1] = data & 0x0C >> 2
+	g.objPalettes[1][0] = data & 0x03
 }
 
 func (g *GPU) GetWindowY() byte {
@@ -217,18 +241,18 @@ func (g *GPU) GetScreen() [144][160]byte {
 func (g *GPU) drawLine() {
 
 	// If first bit of control is set render tiles
-	if g.control&0x01 == 0x01 {
+	if bit.IsSet8(g.control, 0) {
 		g.renderTiles()
 	}
 
 	// if second bit of control is set render sprites
-	if g.control&0x02 == 0x02 {
-
+	if bit.IsSet8(g.control, 1) {
+		g.renderSprites()
 	}
 }
 
 func (g *GPU) isLCDEnabled() bool {
-	return g.control&0x80 == 0x80
+	return bit.IsSet8(g.control, 7)
 }
 
 func (g *GPU) updateLCDStatus() {
@@ -254,7 +278,7 @@ func (g *GPU) doUpdatePPUMode() {
 
 		// During Vblank the status stays always the same during line rendering
 		g.setPPUMode(vblankMode)
-		requestInterrupt = g.status&0x10 == 0x10
+		requestInterrupt = bit.IsSet8(g.status, 4)
 
 	} else {
 
@@ -263,7 +287,7 @@ func (g *GPU) doUpdatePPUMode() {
 		switch {
 		case g.scanlineCounter <= 80:
 			g.setPPUMode(oamMode)
-			requestInterrupt = g.status&0x20 == 0x20
+			requestInterrupt = bit.IsSet8(g.status, 5)
 
 		case g.scanlineCounter <= 80+172:
 			g.setPPUMode(vramMode)
@@ -271,7 +295,7 @@ func (g *GPU) doUpdatePPUMode() {
 
 		default: // rest of the scan line
 			g.setPPUMode(hblankMode)
-			requestInterrupt = g.status&0x08 == 0x08
+			requestInterrupt = bit.IsSet8(g.status, 3)
 		}
 	}
 
@@ -292,7 +316,7 @@ func (g *GPU) doCompareLYCAndLC() {
 	if g.currentLine == g.currentLineCompare {
 		g.status |= 0x04
 
-		if g.status&0x40 == 0x40 {
+		if bit.IsSet8(g.status, 6) {
 			g.interrupts.RequestInterrupt(interrupts.LcdStat)
 		}
 	}
@@ -341,15 +365,33 @@ func (g *GPU) updateTileSet(address uint16) {
 	}
 }
 
+func (g *GPU) updateSpriteSet(address uint16) {
+	data := g.oam[address]
+	s := &g.spriteSet[address/4]
+
+	switch address % 4 {
+	case 0: // Y Position
+		s.yPos = int(data) - 16
+	case 1: // X Position
+		s.xPos = int(data) - 8
+	case 2: // Tile index
+		s.tileIndex = data
+	case 3:
+		s.yFlip = bit.IsSet8(data, 6)
+		s.xFlip = bit.IsSet8(data, 5)
+		s.paletteIndex = data & 0x10 >> 4
+	}
+}
+
 func (g *GPU) renderTiles() {
 
 	// is window enabled (bit 5 (counting from 0) of control set to 1) ad are we currently drawing it?
-	drawingWindow := g.control&0x20 == 0x20 && g.windowY <= g.currentLine
+	drawingWindow := bit.IsSet8(g.control, 5) && g.windowY <= g.currentLine
 
 	// Which tile map are we using for the current line
 	var tileMapStartAddress uint16
-	if (g.control&0x08 == 0x08) || // for the screen check bit 3
-		(drawingWindow && g.control&0x40 == 0x40) { // but while drawing the window, check bit 6
+	if bit.IsSet8(g.control, 3) || // for the screen check bit 3
+		(drawingWindow && bit.IsSet8(g.control, 6)) { // but while drawing the window, check bit 6
 		tileMapStartAddress = 0x1C00
 	} else {
 		tileMapStartAddress = 0x1800
@@ -379,17 +421,95 @@ func (g *GPU) renderTiles() {
 		tileAddress := tileMapStartAddress + uint16(tileRow)*32 + uint16(tileCol)
 		tileIdentifier := g.vram[tileAddress]
 
-		tile := g.getTile(tileIdentifier)
-		g.screen[g.currentLine][pixel] = tile[yPos%8][xPos%8]
+		tile := g.getTileForBackgroundOrWindow(tileIdentifier)
+		g.screen[g.currentLine][pixel] = g.bgPalette[tile[yPos%8][xPos%8]]
 	}
 
 }
 
-func (g *GPU) getTile(identifier byte) [8][8]byte {
-	if g.control&0x10 == 0x10 {
+func (g *GPU) getTileForBackgroundOrWindow(identifier byte) [8][8]byte {
+	if bit.IsSet8(g.control, 4) {
 		return g.tileSet[identifier]
 	} else {
 		signedIdentifier := int(int8(identifier))
 		return g.tileSet[256+signedIdentifier]
+	}
+}
+
+// renderSprites draws the sprite data on screen.
+func (g *GPU) renderSprites() {
+
+	// Are we using 8x16 pixel sprites instead of 8x8
+	use8x16 := bit.IsSet8(g.control, 2)
+	var ySize int
+	if use8x16 {
+		ySize = 16
+	} else {
+		ySize = 8
+	}
+
+	// Select the sprites to draw based on their y-Positions
+	spritesToDraw := make([]sprite, 0, 10)
+	for _, s := range g.spriteSet {
+		if int(g.currentLine) >= s.yPos && int(g.currentLine) < s.yPos+ySize {
+			spritesToDraw = append(spritesToDraw, s)
+		}
+
+		// Hardware restrictions allow maximum ten sprites drawn on one line
+		if len(spritesToDraw) == 10 {
+			break
+		}
+	}
+
+	// Sort sprites descending based on their x Position (we want to draw higher x Positions first)
+	sort.Slice(spritesToDraw, func(i, j int) bool {
+		return spritesToDraw[i].xPos > spritesToDraw[j].xPos
+	})
+
+	for _, s := range spritesToDraw {
+
+		lineWithinSprite := int(g.currentLine) - s.yPos
+
+		tileIdentifier := s.tileIndex
+		// In 8x16 mode hardware ensures, that the tileIndex always points to an even address (top tile).
+		// The following odd address contains the bottom tile)
+		if use8x16 {
+			tileIdentifier &= 0xFE
+		}
+
+		// If yFlip is enabled read the sprite in backwards
+		if s.yFlip {
+			lineWithinSprite -= ySize + 1
+			lineWithinSprite *= -1
+		}
+
+		tileOffset := lineWithinSprite / 8
+
+		tile := g.tileSet[int(tileIdentifier)+tileOffset]
+
+		lineWithinTile := lineWithinSprite - (tileOffset * 8)
+
+		for i := 0; i < 8; i++ {
+			columnWithinTile := i
+
+			// account for xFlip
+			if s.xFlip {
+				columnWithinTile -= 8 - 1
+				columnWithinTile *= -1
+			}
+
+			colorIndexOfPixel := tile[lineWithinTile][columnWithinTile]
+
+			pixel := s.xPos + i
+			// X bound check - don't draw the sprite when we are out of bounds
+			if pixel < 0 || pixel >= screenXResolution {
+				return
+			}
+
+			// colorId = 0 means transparent for sprites and thus does not affect the screen
+			if colorIndexOfPixel != 0 {
+				g.screen[g.currentLine][pixel] = g.objPalettes[s.paletteIndex][colorIndexOfPixel]
+			}
+		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"gameboy-emulator/internal/cartridge"
 	"gameboy-emulator/internal/gpu"
 	"gameboy-emulator/internal/interrupts"
+	"gameboy-emulator/internal/joypad"
 	"gameboy-emulator/internal/timer"
 	log "go.uber.org/zap"
 )
@@ -32,9 +33,12 @@ type (
 	Memory struct {
 		wram [0x2000]byte
 		hram [0x80]byte
-		oam  [0xA0]byte // Object Attribute Memory
 
 		io [0xA0]ioRegister
+
+		// Dummy registers for Data Link Cable
+		sb byte
+		sc byte
 
 		interrupts *interrupts.Interrupts
 		gpu        *gpu.GPU
@@ -56,17 +60,20 @@ func New(
 	interrupts *interrupts.Interrupts,
 	timer *timer.Timer,
 	gpu *gpu.GPU,
+	joypad *joypad.Joypad,
 	bootRom *[0x100]byte,
 ) *Memory {
 	m := &Memory{
 		interrupts: interrupts,
 		gpu:        gpu,
 		bootRom:    *bootRom,
+		sc:         0x7E,
 	}
 	m.initializeIOAddressSpace(
 		timer,
 		gpu,
 		interrupts,
+		joypad,
 	)
 	return m
 }
@@ -98,13 +105,14 @@ func (mem *Memory) initializeIOAddressSpace(
 	timer *timer.Timer,
 	gpu *gpu.GPU,
 	interrupts *interrupts.Interrupts,
+	joypad *joypad.Joypad,
 ) {
 	// Joypad
-	mem.io[0x00] = ioRegister{"JOYP", missingWrite, missingRead}
+	mem.io[0x00] = ioRegister{"JOYP", joypad.WriteRegister, joypad.ReadRegister}
 
 	// Serial Data Transfer
-	mem.io[0x01] = ioRegister{"SB", missingWrite, missingRead}
-	mem.io[0x02] = ioRegister{"SC", missingWrite, missingRead}
+	mem.io[0x01] = ioRegister{"SB", mem.writeSb, mem.readSb}
+	mem.io[0x02] = ioRegister{"SC", mem.writeSc, mem.readSc}
 
 	// Timer and Divider
 	mem.io[0x04] = ioRegister{"DIV", func(_ byte) { timer.ResetDiv() }, timer.GetDiv}
@@ -180,7 +188,7 @@ func (mem *Memory) write(address uint16, data byte) {
 		mem.write(address-0x2000, data)
 
 	case address < 0xFEA0: // OAM
-		mem.oam[address-0xFE00] = data
+		mem.gpu.WriteOAM(address-0xFE00, data)
 
 	case address < 0xFF00: // not usable area
 		log.L().Debug("Write attempt to not usable memory area")
@@ -232,7 +240,7 @@ func (mem *Memory) read(address uint16) byte {
 		return mem.read(address - 0x2000)
 
 	case address < 0xFEA0: // OAM
-		return mem.oam[address-0xFE00]
+		return mem.gpu.ReadOAM(address - 0xFE00)
 
 	case address < 0xFF00: // not usable area
 		log.L().Panic("Attempt to read from not usable memory area")
@@ -270,7 +278,8 @@ func (mem *Memory) handleIORead(address uint16) byte {
 	register := mem.io[address-0xFF00]
 
 	if register.name == "" {
-		ioLogger.Panic("Read attempt from unmapped I/O address")
+		ioLogger.Debug("Read attempt from unmapped I/O address")
+		return 0xFF
 	}
 
 	ioLogger.Debug(fmt.Sprintf("Reading from to I/O - %s", register.name))
@@ -289,13 +298,29 @@ func (mem *Memory) bootRomMapped() bool {
 // The given value specifies the transfer source address divided by 0x100.
 func (mem *Memory) doDMATransfer(value byte) {
 	address := uint16(value) << 8 // this is the same as dividing by 0x100
-	for i := 0; i < len(mem.oam); i++ {
+	for i := 0; i < gpu.OAMSize; i++ {
 		mem.Write8BitValue(0xFE00+uint16(i), mem.Read8BitValue(address+uint16(i)))
 	}
 }
 
 func (mem *Memory) setBootFlag(data byte) {
 	mem.bootFlag = data
+}
+
+func (mem *Memory) readSc() byte {
+	return mem.sc
+}
+
+func (mem *Memory) writeSc(data byte) {
+	mem.sc = data
+}
+
+func (mem *Memory) readSb() byte {
+	return mem.sb
+}
+
+func (mem *Memory) writeSb(data byte) {
+	mem.sb = data
 }
 
 func noRead(message string) func() byte {

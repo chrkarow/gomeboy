@@ -1,4 +1,4 @@
-level: 'info'
+level: 'warn'
 development: false
 disableCaller: false
 encoding: 'console'
