@@ -1,4 +1,4 @@
-package bit
+package util
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -10,7 +10,7 @@ func TestSet(t *testing.T) {
 	value := byte(0)
 
 	// WHEN
-	Set(&value, 1)
+	SetBit(&value, 1)
 
 	// THEN
 	assert.Equal(t, byte(2), value)
@@ -21,7 +21,7 @@ func TestUnsetSet(t *testing.T) {
 	value := byte(0xFF)
 
 	// WHEN
-	Unset(&value, 3)
+	UnsetBit(&value, 3)
 
 	// THEN
 	assert.Equal(t, byte(0xF7), value)

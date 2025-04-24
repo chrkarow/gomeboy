@@ -614,37 +614,28 @@ func decH(cpu *CPU, _ uint16) { decrementSubRegister(&cpu.hl.Hi, &cpu.f) }
 func ldHn(cpu *CPU, operand uint16) { loadValueToSubRegister(&cpu.hl.Hi, uint8(operand)) }
 
 // 0x27
-// Implemented according to https://forums.nesdev.org/viewtopic.php?t=15944
+// Implemented according to https://ehaskins.com/2018-01-30%20Z80%20DAA/
 func daa(cpu *CPU, _ uint16) {
+	var correction byte
 
-	var adjustment byte
-	var adjustedValue byte
+	value := cpu.a.GetValue()
 
-	if cpu.f.isSet(n) {
-		if cpu.f.isSet(c) {
-			adjustment += 0x60
-		}
-
-		if cpu.f.isSet(h) {
-			adjustment += 0x06
-		}
-
-		adjustedValue = cpu.a.GetValue() - adjustedValue
-
-	} else {
-		if cpu.f.isSet(c) || cpu.a.GetValue() > 0x99 {
-			adjustment += 0x60
-			cpu.f.setFlag(c)
-		}
-
-		if cpu.f.isSet(h) || cpu.a.GetValue()&0x0F > 0x09 {
-			adjustment += 0x06
-		}
-
-		adjustedValue = cpu.a.GetValue() + adjustment
+	if cpu.f.isSet(h) || (!cpu.f.isSet(n) && value&0xf > 0x9) {
+		correction |= 0x6
 	}
 
-	if adjustedValue == 0x00 {
+	if cpu.f.isSet(c) || (!cpu.f.isSet(n) && value > 0x99) {
+		correction |= 0x60
+		cpu.f.setFlag(c)
+	}
+
+	if cpu.f.isSet(n) {
+		value -= correction
+	} else {
+		value += correction
+	}
+
+	if value == 0 {
 		cpu.f.setFlag(z)
 	} else {
 		cpu.f.unsetFlag(z)
@@ -652,7 +643,7 @@ func daa(cpu *CPU, _ uint16) {
 
 	cpu.f.unsetFlag(h)
 
-	cpu.a.SetValue(adjustedValue)
+	cpu.a.SetValue(value)
 }
 
 // 0x28

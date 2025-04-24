@@ -1,7 +1,7 @@
 package cartridge
 
 import (
-	"gameboy-emulator/internal/bit"
+	"gameboy-emulator/internal/util"
 	log "go.uber.org/zap"
 )
 
@@ -44,7 +44,7 @@ func (mbc *mbc2) HandleBanking(address uint16, data byte) {
 		return
 	}
 
-	if bit.IsSet16(address, 8) { // if least significant bit of upper address byte is one ...
+	if util.BitIsSet16(address, 8) { // if least significant bit of upper address byte is one ...
 		mbc.currentROMBank = data & 0x0F // ...lower 4 bits of written value encode the ROM romBank
 
 		if mbc.currentROMBank == 0x00 { // if ROM romBank should ever be set to 0 it is treated as 1

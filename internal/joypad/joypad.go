@@ -1,8 +1,8 @@
 package joypad
 
 import (
-	"gameboy-emulator/internal/bit"
 	"gameboy-emulator/internal/interrupts"
+	"gameboy-emulator/internal/util"
 )
 
 type Joypad struct {
@@ -56,11 +56,11 @@ func (j *Joypad) ReadRegister() byte {
 //	7 = Start
 func (j *Joypad) KeyPressed(index byte) {
 
-	if !bit.IsSet8(j.state, index) {
+	if !util.BitIsSet8(j.state, index) {
 		return
 	}
 
-	bit.Unset(&j.state, index)
+	util.UnsetBit(&j.state, index)
 
 	if (index >= 4 && j.control == 0x10) || (index < 4 && j.control == 0x20) {
 		j.interrupts.RequestInterrupt(interrupts.Joypad)
@@ -68,5 +68,5 @@ func (j *Joypad) KeyPressed(index byte) {
 }
 
 func (j *Joypad) KeyReleased(index byte) {
-	bit.Set(&j.state, index)
+	util.SetBit(&j.state, index)
 }

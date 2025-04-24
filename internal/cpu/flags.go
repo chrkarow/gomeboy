@@ -6,10 +6,10 @@ type flags struct {
 type flag byte
 
 const (
-	z flag = 1 << 7 // Zero
-	n flag = 1 << 6 // Subtraction (BCD)
-	h flag = 1 << 5 // Half carry (BCD)
 	c flag = 1 << 4 // Carry
+	h flag = 1 << 5 // Half carry (BCD)
+	n flag = 1 << 6 // Subtraction (BCD)
+	z flag = 1 << 7 // Zero
 )
 
 // setFlag sets the given flag to 1

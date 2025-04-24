@@ -1,8 +1,8 @@
 package gpu
 
 import (
-	"gameboy-emulator/internal/bit"
 	"gameboy-emulator/internal/interrupts"
+	"gameboy-emulator/internal/util"
 	"sort"
 )
 
@@ -270,18 +270,18 @@ func (g *GPU) SetWindowX(data byte) {
 func (g *GPU) drawLine() {
 
 	// If first bit of control is set render tiles
-	if bit.IsSet8(g.control, 0) {
+	if util.BitIsSet8(g.control, 0) {
 		g.renderTiles()
 	}
 
 	// if second bit of control is set render sprites
-	if bit.IsSet8(g.control, 1) {
+	if util.BitIsSet8(g.control, 1) {
 		g.renderSprites()
 	}
 }
 
 func (g *GPU) isLCDEnabled() bool {
-	return bit.IsSet8(g.control, 7)
+	return util.BitIsSet8(g.control, 7)
 }
 
 func (g *GPU) updateLCDStatus() {
@@ -307,7 +307,7 @@ func (g *GPU) doUpdatePPUMode() {
 
 		// During Vblank the status stays always the same during line rendering
 		g.setPPUMode(vblankMode)
-		requestInterrupt = bit.IsSet8(g.status, 4)
+		requestInterrupt = util.BitIsSet8(g.status, 4)
 
 	} else {
 
@@ -316,7 +316,7 @@ func (g *GPU) doUpdatePPUMode() {
 		switch {
 		case g.scanlineCounter <= 80:
 			g.setPPUMode(oamMode)
-			requestInterrupt = bit.IsSet8(g.status, 5)
+			requestInterrupt = util.BitIsSet8(g.status, 5)
 
 		case g.scanlineCounter <= 80+172:
 			g.setPPUMode(vramMode)
@@ -324,7 +324,7 @@ func (g *GPU) doUpdatePPUMode() {
 
 		default: // rest of the scan line
 			g.setPPUMode(hblankMode)
-			requestInterrupt = bit.IsSet8(g.status, 3)
+			requestInterrupt = util.BitIsSet8(g.status, 3)
 		}
 	}
 
@@ -345,7 +345,7 @@ func (g *GPU) doCompareLYCAndLC() {
 	if g.currentLine == g.currentLineCompare {
 		g.status |= 0x04
 
-		if bit.IsSet8(g.status, 6) {
+		if util.BitIsSet8(g.status, 6) {
 			g.interrupts.RequestInterrupt(interrupts.LcdStat)
 		}
 	}
@@ -356,7 +356,7 @@ func (g *GPU) getPPUMode() byte {
 }
 
 func (g *GPU) setPPUMode(mode byte) {
-	g.status &= 0xFC // Set last two bits to zero
+	g.status &= 0xFC // SetBit last two bits to zero
 	g.status |= mode // insert mode
 }
 
@@ -406,8 +406,8 @@ func (g *GPU) updateSpriteSet(address uint16) {
 	case 2: // Tile index
 		s.tileIndex = data
 	case 3:
-		s.yFlip = bit.IsSet8(data, 6)
-		s.xFlip = bit.IsSet8(data, 5)
+		s.yFlip = util.BitIsSet8(data, 6)
+		s.xFlip = util.BitIsSet8(data, 5)
 		s.paletteIndex = data & 0x10 >> 4
 	}
 }
@@ -415,12 +415,12 @@ func (g *GPU) updateSpriteSet(address uint16) {
 func (g *GPU) renderTiles() {
 
 	// is window enabled (bit 5 (counting from 0) of control set to 1) ad are we currently drawing it?
-	drawingWindow := bit.IsSet8(g.control, 5) && g.windowY <= g.currentLine
+	drawingWindow := util.BitIsSet8(g.control, 5) && g.windowY <= g.currentLine
 
 	// Which tile map are we using for the current line
 	var tileMapStartAddress uint16
-	if bit.IsSet8(g.control, 3) || // for the screen check bit 3
-		(drawingWindow && bit.IsSet8(g.control, 6)) { // but while drawing the window, check bit 6
+	if util.BitIsSet8(g.control, 3) || // for the screen check bit 3
+		(drawingWindow && util.BitIsSet8(g.control, 6)) { // but while drawing the window, check bit 6
 		tileMapStartAddress = 0x1C00
 	} else {
 		tileMapStartAddress = 0x1800
@@ -457,7 +457,7 @@ func (g *GPU) renderTiles() {
 }
 
 func (g *GPU) getTileForBackgroundOrWindow(identifier byte) [8][8]byte {
-	if bit.IsSet8(g.control, 4) {
+	if util.BitIsSet8(g.control, 4) {
 		return g.tileSet[identifier]
 	} else {
 		signedIdentifier := int(int8(identifier))
@@ -469,7 +469,7 @@ func (g *GPU) getTileForBackgroundOrWindow(identifier byte) [8][8]byte {
 func (g *GPU) renderSprites() {
 
 	// Are we using 8x16 pixel sprites instead of 8x8
-	use8x16 := bit.IsSet8(g.control, 2)
+	use8x16 := util.BitIsSet8(g.control, 2)
 	var ySize int
 	if use8x16 {
 		ySize = 16

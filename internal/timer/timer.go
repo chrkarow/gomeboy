@@ -1,8 +1,8 @@
 package timer
 
 import (
-	"gameboy-emulator/internal/bit"
 	"gameboy-emulator/internal/interrupts"
+	"gameboy-emulator/internal/util"
 )
 
 const dividerThreshold int = 256
@@ -133,5 +133,5 @@ func (t *Timer) getUpdateThreshold() int {
 }
 
 func (t *Timer) isTimerEnabled() bool {
-	return bit.IsSet8(t.tac, 2) // bit 2 has to be set
+	return util.BitIsSet8(t.tac, 2) // bit 2 has to be set
 }
