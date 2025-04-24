@@ -43,6 +43,7 @@ type (
 		windowX            byte       // WX (0xFF4B)
 
 		interrupts *interrupts.Interrupts
+		drawScreen func([144][160]byte)
 	}
 
 	sprite struct {
@@ -56,15 +57,46 @@ type (
 )
 
 func New(inter *interrupts.Interrupts) *GPU {
-	return &GPU{
-		interrupts:      inter,
-		scanlineCounter: scanlineCounterThreshold,
-		control:         0x91,
-		status:          0x80,
-		currentLine:     0x0A,
-		bgPalette:       [4]byte{0x3, 0x3, 0x3, 0x0},
-		screen:          splashScreen,
+	g := &GPU{
+		interrupts: inter,
+		drawScreen: func(screen [144][160]byte) {
+			// do nothing
+		},
 	}
+	g.Reset()
+	return g
+}
+
+// Reset the gpu to initial state.
+//
+// Values taken from https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/boot_hwio-dmgABCmgb.s
+func (g *GPU) Reset() {
+	g.scanlineCounter = scanlineCounterThreshold
+
+	g.vram = [0x2000]byte{}
+	g.oam = [OAMSize]byte{}
+
+	g.tileSet = [384][8][8]byte{}
+	g.spriteSet = [40]sprite{}
+	g.screen = splashScreen
+
+	g.control = 0x91
+	g.status = 0x80
+	g.scrollY = 0x0
+	g.scrollX = 0x0
+	g.currentLine = 0x0A
+	g.currentLineCompare = 0x0
+	g.bgPalette = [4]byte{0x3, 0x3, 0x3, 0x0}
+	g.objPalettes = [2][4]byte{}
+	g.windowX = 0x0
+	g.windowY = 0x0
+
+	g.drawScreen(g.screen)
+}
+
+func (g *GPU) SetScreenHandler(handler func([144][160]byte)) {
+	g.drawScreen = handler
+	g.drawScreen(g.screen)
 }
 
 func (g *GPU) UpdateDisplay(stepCycles int) {
@@ -90,6 +122,7 @@ func (g *GPU) UpdateDisplay(stepCycles int) {
 		switch {
 		case g.currentLine == 144: // Entering Vblank period
 			g.interrupts.RequestInterrupt(interrupts.Vblank)
+			g.drawScreen(g.screen)
 		case g.currentLine > 153:
 			g.ResetCurrentLine()
 		}
@@ -232,10 +265,6 @@ func (g *GPU) GetWindowX() byte {
 // Source: https://gbdev.io/pandocs/Scrolling.html#ff4aff4b--wy-wx-window-y-position-x-position-plus-7
 func (g *GPU) SetWindowX(data byte) {
 	g.windowX = data - 7
-}
-
-func (g *GPU) GetScreen() [144][160]byte {
-	return g.screen
 }
 
 func (g *GPU) drawLine() {

@@ -24,6 +24,11 @@ func New() *Interrupts {
 	return i
 }
 
+func (i *Interrupts) Reset() {
+	i.master = false
+	i.enable = 0x0
+}
+
 func (interrupts *Interrupts) RegisterHandlers(handlers Handlers) {
 	interrupts.handlers = append(interrupts.handlers, handlers)
 }

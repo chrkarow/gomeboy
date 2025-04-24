@@ -1,0 +1,8 @@
+Website = "https://github.com/chrkarow/gomeboy"
+
+[Details]
+Icon = "Icon.png"
+Name = "GomeBoy"
+ID = "de.cka.gomeboy"
+Version = "0.1.0"
+Build = 1

@@ -40,13 +40,13 @@ type (
 		sb byte
 		sc byte
 
-		interrupts *interrupts.Interrupts
-		gpu        *gpu.GPU
-
-		bootRom  [0x100]byte
 		bootFlag byte // Set to non-zero to disable boot ROM
 
-		cartridge cartridge.Cartridge
+		interrupts *interrupts.Interrupts
+		gpu        *gpu.GPU
+		cartridge  cartridge.Cartridge
+
+		bootRom [0x100]byte
 	}
 
 	ioRegister struct {
@@ -67,7 +67,6 @@ func New(
 		interrupts: interrupts,
 		gpu:        gpu,
 		bootRom:    *bootRom,
-		sc:         0x7E,
 	}
 	m.initializeIOAddressSpace(
 		timer,
@@ -75,7 +74,19 @@ func New(
 		interrupts,
 		joypad,
 	)
+	m.Reset()
 	return m
+}
+
+// Reset the memory to initial state.
+//
+// Values taken from https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/boot_hwio-dmgABCmgb.s
+func (mem *Memory) Reset() {
+	mem.sc = 0x7E
+	mem.sb = 0x0
+	mem.wram = [0x2000]byte{}
+	mem.hram = [0x80]byte{}
+	mem.bootFlag = 0x0
 }
 
 func (mem *Memory) Read8BitValue(address uint16) byte {

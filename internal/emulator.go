@@ -20,11 +20,8 @@ type (
 		memory     *memory.Memory
 		cpu        *cpu.CPU
 
-		updateHandler FrameUpdateHandler
-	}
-
-	FrameUpdateHandler interface {
-		UpdateFrame()
+		paused  bool
+		stopped bool
 	}
 )
 
@@ -46,48 +43,64 @@ func NewEmulator(
 	}
 }
 
-func (e *Emulator) RegisterFrameUpdateHandler(handler FrameUpdateHandler) {
-	e.updateHandler = handler
+func (e *Emulator) Reset() {
+	e.interrupts.Reset()
+	e.joypad.Reset()
+	e.timer.Reset()
+	e.gpu.Reset()
+	e.memory.Reset()
+	e.cpu.Reset()
 }
 
-func (e *Emulator) InsertCartridgeAndRun(pathToCartridgeImage string) {
-	var refreshCounter int
+func (e *Emulator) SetScreenHandler(handler func([144][160]byte)) {
+	e.gpu.SetScreenHandler(handler)
+}
 
+func (e *Emulator) InsertCartridge(pathToCartridgeImage string) {
 	e.memory.InsertGameCartridge(cartridge.LoadCartridgeImage(pathToCartridgeImage))
+}
 
-	for {
-		startTime := time.Now().UnixNano()
+func (e *Emulator) Run() {
+	go func() {
+		for !e.stopped {
 
-		stepCycles := e.cpu.Step()
-		e.timer.UpdateTimer(stepCycles)
-		e.gpu.UpdateDisplay(stepCycles)
-		e.interrupts.HandleInterrupt()
+			if e.paused {
+				time.Sleep(time.Second)
+				continue
+			}
 
-		emulatedNanos := int64(stepCycles) * 238
-
-		// Update UI circa 60 times per second
-		refreshCounter += stepCycles
-		if refreshCounter >= 69905 {
-			refreshCounter %= 69905
-			e.updateHandler.UpdateFrame()
+			stepCycles := e.cpu.Step()
+			e.timer.UpdateTimer(stepCycles)
+			e.gpu.UpdateDisplay(stepCycles)
+			e.interrupts.HandleInterrupt()
 		}
 
-		// Ty to synchronize to real time
-		realNanos := time.Now().UnixNano() - startTime
-		if emulatedNanos > realNanos {
-			time.Sleep(time.Duration(emulatedNanos - realNanos))
-		}
-	}
+		e.Reset()
+		e.stopped = false
+		e.paused = false
+	}()
+}
+
+func (e *Emulator) TogglePause() {
+	e.paused = !e.paused
+}
+
+func (e *Emulator) IsPaused() bool {
+	return e.paused
+}
+
+func (e *Emulator) Stop() {
+	e.stopped = true
 }
 
 func (e *Emulator) KeyPressed(index byte) {
-	e.joypad.KeyPressed(index)
+	go func() {
+		e.joypad.KeyPressed(index)
+	}()
 }
 
 func (e *Emulator) KeyReleased(index byte) {
-	e.joypad.KeyReleased(index)
-}
-
-func (e *Emulator) GetScreen() [144][160]byte {
-	return e.gpu.GetScreen()
+	go func() {
+		e.joypad.KeyReleased(index)
+	}()
 }

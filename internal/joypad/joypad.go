@@ -14,11 +14,19 @@ type Joypad struct {
 }
 
 func New(inter *interrupts.Interrupts) *Joypad {
-	return &Joypad{
-		state:      0xFF,
-		control:    0xC, // as requested by Gekkios test ROM
+	j := &Joypad{
 		interrupts: inter,
 	}
+	j.Reset()
+	return j
+}
+
+// Reset the joypad to initial state.
+//
+// Values taken from https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/boot_hwio-dmgABCmgb.s
+func (j *Joypad) Reset() {
+	j.state = 0xFF
+	j.control = 0xC
 }
 
 func (j *Joypad) WriteRegister(data byte) {

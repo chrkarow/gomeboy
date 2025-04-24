@@ -23,11 +23,24 @@ type Timer struct {
 }
 
 func New(inter *interrupts.Interrupts) *Timer {
-	return &Timer{
+	t := &Timer{
 		interrupts: inter,
-		tac:        0xF8, // Initial values taken from https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/boot_hwio-dmgABCmgb.s
-		div:        0xAD,
 	}
+	t.Reset()
+	return t
+}
+
+// Reset the timer to initial state.
+//
+// Values taken from https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/boot_hwio-dmgABCmgb.s
+func (t *Timer) Reset() {
+	t.tima = 0x0
+	t.tma = 0x0
+	t.tac = 0xF8
+	t.div = 0xAD
+
+	t.timerCounter = 0
+	t.dividerCounter = 0
 }
 
 func (t *Timer) UpdateTimer(stepCycles int) {
