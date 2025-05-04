@@ -1,13 +1,14 @@
-package internal
+package cycle
 
 import (
 	"gameboy-emulator/internal/cartridge"
-	"gameboy-emulator/internal/cpu"
-	"gameboy-emulator/internal/gpu"
-	"gameboy-emulator/internal/interrupts"
-	"gameboy-emulator/internal/joypad"
-	"gameboy-emulator/internal/memory"
-	"gameboy-emulator/internal/timer"
+	"gameboy-emulator/internal/cycle/apu"
+	"gameboy-emulator/internal/cycle/cpu"
+	"gameboy-emulator/internal/cycle/gpu"
+	"gameboy-emulator/internal/cycle/interrupts"
+	"gameboy-emulator/internal/cycle/joypad"
+	"gameboy-emulator/internal/cycle/memory"
+	"gameboy-emulator/internal/cycle/timer"
 	"time"
 )
 
@@ -16,12 +17,14 @@ type (
 		interrupts *interrupts.Interrupts
 		joypad     *joypad.Joypad
 		timer      *timer.Timer
-		gpu        *gpu.GPU
+		ppu        *gpu.PPU
 		memory     *memory.Memory
 		cpu        *cpu.CPU
+		apu        *apu.APU
 
 		paused  bool
 		stopped bool
+		turbo   bool
 	}
 )
 
@@ -29,17 +32,19 @@ func NewEmulator(
 	interrupts *interrupts.Interrupts,
 	joypad *joypad.Joypad,
 	timer *timer.Timer,
-	gpu *gpu.GPU,
+	ppu *gpu.PPU,
 	memory *memory.Memory,
 	cpu *cpu.CPU,
+	apu *apu.APU,
 ) *Emulator {
 	return &Emulator{
 		interrupts: interrupts,
 		joypad:     joypad,
 		timer:      timer,
-		gpu:        gpu,
+		ppu:        ppu,
 		memory:     memory,
 		cpu:        cpu,
+		apu:        apu,
 	}
 }
 
@@ -47,13 +52,14 @@ func (e *Emulator) Reset() {
 	e.interrupts.Reset()
 	e.joypad.Reset()
 	e.timer.Reset()
-	e.gpu.Reset()
+	e.ppu.Reset()
 	e.memory.Reset()
 	e.cpu.Reset()
+	e.apu.Reset()
 }
 
 func (e *Emulator) SetScreenHandler(handler func([144][160]byte)) {
-	e.gpu.SetScreenHandler(handler)
+	e.ppu.GetDisplay().RegisterFrameOutputHandler(handler)
 }
 
 func (e *Emulator) InsertCartridge(pathToCartridgeImage string) {
@@ -62,6 +68,7 @@ func (e *Emulator) InsertCartridge(pathToCartridgeImage string) {
 
 func (e *Emulator) Run() {
 	go func() {
+		var count int
 		for !e.stopped {
 
 			if e.paused {
@@ -69,16 +76,27 @@ func (e *Emulator) Run() {
 				continue
 			}
 
-			stepCycles := e.cpu.Step()
-			e.timer.UpdateTimer(stepCycles)
-			e.gpu.UpdateDisplay(stepCycles)
-			e.interrupts.HandleInterrupt()
+			if !e.turbo && count == 10000 {
+				count = 0
+				time.Sleep(1792 * time.Microsecond)
+			}
+
+			e.cpu.Tick()
+			e.memory.Tick()
+			e.timer.Tick()
+			e.ppu.Tick()
+
+			count++
 		}
 
 		e.Reset()
 		e.stopped = false
 		e.paused = false
 	}()
+}
+
+func (e *Emulator) ToggleTurbo() {
+	e.turbo = !e.turbo
 }
 
 func (e *Emulator) TogglePause() {

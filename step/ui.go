@@ -9,7 +9,7 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"gameboy-emulator/internal"
+	"gameboy-emulator/internal/step"
 	"image"
 	"image/color"
 )
@@ -43,10 +43,10 @@ type UserInterface struct {
 	pauseAction *widget.ToolbarAction
 	playAction  *widget.ToolbarAction
 
-	emulator *internal.Emulator
+	emulator *step.Emulator
 }
 
-func NewUserInterface(emu *internal.Emulator) *UserInterface {
+func NewUserInterface(emu *step.Emulator) *UserInterface {
 	ui := &UserInterface{
 		emulator: emu,
 	}

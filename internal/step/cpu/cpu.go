@@ -3,8 +3,8 @@ package cpu
 
 import (
 	"fmt"
-	"gameboy-emulator/internal/interrupts"
-	"gameboy-emulator/internal/memory"
+	"gameboy-emulator/internal/step/interrupts"
+	"gameboy-emulator/internal/step/memory"
 	log "go.uber.org/zap"
 	"strings"
 )
@@ -907,7 +907,7 @@ func ldDHLL(cpu *CPU, _ uint16) { cpu.load8BitValueToMemory(cpu.hl.GetValue(), c
 
 // 0x76
 func halt(cpu *CPU, _ uint16) {
-	if cpu.interrupts.IsMasterEnabled() {
+	if cpu.interrupts.MasterEnabled() {
 		// If IME is set, do nothing and wait for interrupt handling
 	} else {
 		cpu.pc++
@@ -1211,7 +1211,9 @@ func callznn(cpu *CPU, operand uint16) {
 }
 
 // 0xCD
-func callnn(cpu *CPU, operand uint16) { cpu.call(operand, &cpu.stepCycles, always()) }
+func callnn(cpu *CPU, operand uint16) {
+	cpu.call(operand, &cpu.stepCycles, always())
+}
 
 // 0xCE
 func adcn(cpu *CPU, operand uint16) { add8BitValue(&cpu.a, byte(operand), cpu.f.isSet(c), &cpu.f) }

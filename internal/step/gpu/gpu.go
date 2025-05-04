@@ -1,7 +1,7 @@
 package gpu
 
 import (
-	"gameboy-emulator/internal/interrupts"
+	"gameboy-emulator/internal/step/interrupts"
 	"gameboy-emulator/internal/util"
 	"sort"
 )
@@ -121,7 +121,7 @@ func (g *GPU) UpdateDisplay(stepCycles int) {
 
 		switch {
 		case g.currentLine == 144: // Entering Vblank period
-			g.interrupts.RequestInterrupt(interrupts.Vblank)
+			g.interrupts.RequestInterrupt(interrupts.VBlank)
 			g.drawScreen(g.screen)
 		case g.currentLine > 153:
 			g.ResetCurrentLine()

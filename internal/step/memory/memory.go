@@ -3,10 +3,10 @@ package memory
 import (
 	"fmt"
 	"gameboy-emulator/internal/cartridge"
-	"gameboy-emulator/internal/gpu"
-	"gameboy-emulator/internal/interrupts"
-	"gameboy-emulator/internal/joypad"
-	"gameboy-emulator/internal/timer"
+	"gameboy-emulator/internal/step/gpu"
+	"gameboy-emulator/internal/step/interrupts"
+	"gameboy-emulator/internal/step/joypad"
+	"gameboy-emulator/internal/step/timer"
 	log "go.uber.org/zap"
 )
 

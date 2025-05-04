@@ -23,7 +23,7 @@ func (mbc *noMBC) ReadROM(address uint16) byte {
 	return (*mbc.rom)[address&uint16(len(*mbc.rom)-1)]
 }
 
-func (mbc *noMBC) HandleBanking(address uint16, data byte) {
+func (mbc *noMBC) HandleBanking(_ uint16, _ byte) {
 	// no banking
 }
 

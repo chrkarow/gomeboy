@@ -66,6 +66,10 @@ func createCartridge(data *[]byte) Cartridge {
 		return newMBC1(data, ramSize)
 	case 0x05, 0x06:
 		return newMBC2(data)
+	case 0x19, 0x1A, 0x1B:
+		return newMBC5(data, ramSize)
+	case 0x1C, 0x1D, 0x1E:
+		return newMBC5(data, ramSize)
 	default:
 		log.L().Panic("Required MBC not implemented", log.String("value", fmt.Sprintf("0x%02X", (*data)[0x147])))
 	}

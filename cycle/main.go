@@ -1,13 +1,14 @@
 package main
 
 import (
-	"gameboy-emulator/internal"
-	"gameboy-emulator/internal/cpu"
-	"gameboy-emulator/internal/gpu"
-	"gameboy-emulator/internal/interrupts"
-	"gameboy-emulator/internal/joypad"
-	"gameboy-emulator/internal/memory"
-	"gameboy-emulator/internal/timer"
+	"gameboy-emulator/internal/cycle"
+	"gameboy-emulator/internal/cycle/apu"
+	"gameboy-emulator/internal/cycle/cpu"
+	"gameboy-emulator/internal/cycle/gpu"
+	"gameboy-emulator/internal/cycle/interrupts"
+	"gameboy-emulator/internal/cycle/joypad"
+	"gameboy-emulator/internal/cycle/memory"
+	"gameboy-emulator/internal/cycle/timer"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -28,14 +29,15 @@ func main() {
 	}
 
 	// Wire dependencies
+	apuMock := apu.New()
 	inter := interrupts.New()
 	joyp := joypad.New(inter)
 	tim := timer.New(inter)
-	lcd := gpu.New(inter)
-	mem := memory.New(inter, tim, lcd, joyp, (*[0x100]byte)(bios))
+	lcd := gpu.NewPPU(inter)
+	mem := memory.New(inter, tim, lcd, joyp, apuMock, (*[0x100]byte)(bios))
 	processor := cpu.New(mem, inter)
 
-	emulator := internal.NewEmulator(inter, joyp, tim, lcd, mem, processor)
+	emulator := cycle.NewEmulator(inter, joyp, tim, lcd, mem, processor, apuMock)
 
 	ui := NewUserInterface(emulator)
 	ui.ShowAndRun()

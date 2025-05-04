@@ -1,7 +1,7 @@
 package joypad
 
 import (
-	"gameboy-emulator/internal/interrupts"
+	"gameboy-emulator/internal/cycle/interrupts"
 	"gameboy-emulator/internal/util"
 )
 
@@ -26,22 +26,22 @@ func New(inter *interrupts.Interrupts) *Joypad {
 // Values taken from https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/boot_hwio-dmgABCmgb.s
 func (j *Joypad) Reset() {
 	j.state = 0xFF
-	j.control = 0xC
+	j.control = 0xC0
 }
 
 func (j *Joypad) WriteRegister(data byte) {
-	j.control = data & 0x30
+	j.control = data | 0xC0
 }
 
 func (j *Joypad) ReadRegister() byte {
 
 	switch j.control {
-	case 0x10:
+	case 0xD0:
 		return j.control | j.state>>4
-	case 0x20:
+	case 0xE0:
 		return j.control | j.state&0xF
 	}
-	return 0x3F
+	return 0xCF
 }
 
 // KeyPressed records the press of a key. Indexes are set up as follows:
@@ -55,14 +55,13 @@ func (j *Joypad) ReadRegister() byte {
 //	6 = Select
 //	7 = Start
 func (j *Joypad) KeyPressed(index byte) {
-
 	if !util.BitIsSet8(j.state, index) {
 		return
 	}
 
 	util.UnsetBit(&j.state, index)
 
-	if (index >= 4 && j.control == 0x10) || (index < 4 && j.control == 0x20) {
+	if (index >= 4 && j.control == 0xD0) || (index < 4 && j.control == 0xE0) {
 		j.interrupts.RequestInterrupt(interrupts.Joypad)
 	}
 }

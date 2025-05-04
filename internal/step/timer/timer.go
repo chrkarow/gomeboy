@@ -1,7 +1,7 @@
 package timer
 
 import (
-	"gameboy-emulator/internal/interrupts"
+	"gameboy-emulator/internal/step/interrupts"
 	"gameboy-emulator/internal/util"
 )
 
