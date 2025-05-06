@@ -82,7 +82,7 @@ func (e *Emulator) Run() {
 
 			if !e.turbo && count == 10000 {
 				count = 0
-				time.Sleep(1792 * time.Microsecond)
+				time.Sleep(1600 * time.Microsecond)
 			}
 
 			e.cpu.Tick()

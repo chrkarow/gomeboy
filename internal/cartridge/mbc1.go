@@ -1,6 +1,7 @@
 package cartridge
 
 import (
+	"gameboy-emulator/internal/util"
 	log "go.uber.org/zap"
 	"os"
 )
@@ -128,6 +129,11 @@ func (mbc *mbc1) getROMBank(address uint16) uint32 {
 }
 
 func (mbc *mbc1) Save() {
+	// If RAM is completely empty (= all zeroes) don't save
+	if util.IsEmpty(mbc.ram) {
+		return
+	}
+
 	err := os.WriteFile(mbc.name+".sgo", mbc.ram, 0644)
 	if err != nil {
 		log.L().Error("Error writing save file", log.Error(err))
@@ -138,7 +144,9 @@ func (mbc *mbc1) Save() {
 func (mbc *mbc1) load() {
 	data, err := os.ReadFile(mbc.name + ".sgo")
 	if err != nil {
-		log.L().Error("Error reading save file", log.Error(err))
+		if !os.IsNotExist(err) {
+			log.L().Error("Error reading save file", log.Error(err))
+		}
 		return
 	}
 	mbc.ram = data

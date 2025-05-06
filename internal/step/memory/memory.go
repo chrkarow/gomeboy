@@ -112,6 +112,10 @@ func (mem *Memory) InsertGameCartridge(cart cartridge.Cartridge) {
 	mem.cartridge = cart
 }
 
+func (mem *Memory) GetGameCartridge() cartridge.Cartridge {
+	return mem.cartridge
+}
+
 func (mem *Memory) initializeIOAddressSpace(
 	timer *timer.Timer,
 	gpu *gpu.GPU,

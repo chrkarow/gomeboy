@@ -301,6 +301,9 @@ func (mbc *mbc3) Save() {
 func (mbc *mbc3) load() {
 	data, err := os.ReadFile(mbc.name + ".sgo")
 	if err != nil {
+		if !os.IsNotExist(err) {
+			log.L().Error("Error reading save file", log.Error(err))
+		}
 		return
 	}
 
