@@ -113,70 +113,8 @@ func (mem *Memory) InsertGameCartridge(cart cartridge.Cartridge) {
 	mem.cartridge = cart
 }
 
-func (mem *Memory) initializeIOAddressSpace(
-	timer *timer.Timer,
-	ppu *gpu.PPU,
-	interrupts *interrupts.Interrupts,
-	joypad *joypad.Joypad,
-	apu *apu.APU,
-) {
-	// Joypad
-	mem.io[0x00] = ioRegister{"JOYP", joypad.WriteRegister, joypad.ReadRegister}
-
-	// Serial Data Transfer
-	mem.io[0x01] = ioRegister{"SB", mem.writeSb, mem.readSb}
-	mem.io[0x02] = ioRegister{"SC", mem.writeSc, mem.readSc}
-
-	// Timer and Divider
-	mem.io[0x04] = ioRegister{"DIV", func(_ byte) { timer.ResetDiv() }, timer.GetDiv}
-	mem.io[0x05] = ioRegister{"TIMA", timer.SetTima, timer.GetTima}
-	mem.io[0x06] = ioRegister{"TMA", timer.SetTma, timer.GetTma}
-	mem.io[0x07] = ioRegister{"TAC", timer.SetTac, timer.GetTac}
-
-	// Interrupts
-	mem.io[0x0F] = ioRegister{"IF", interrupts.SetFlags, interrupts.GetFlags}
-
-	// Audio
-	mem.io[0x10] = ioRegister{"NR10", func(data byte) { apu.WriteNR(10, data) }, func() byte { return apu.ReadNR(10) }}
-	mem.io[0x11] = ioRegister{"NR11", func(data byte) { apu.WriteNR(11, data) }, func() byte { return apu.ReadNR(11) }}
-	mem.io[0x12] = ioRegister{"NR12", func(data byte) { apu.WriteNR(12, data) }, func() byte { return apu.ReadNR(12) }}
-	mem.io[0x13] = ioRegister{"NR13", func(data byte) { apu.WriteNR(13, data) }, func() byte { return apu.ReadNR(13) }}
-	mem.io[0x14] = ioRegister{"NR14", func(data byte) { apu.WriteNR(14, data) }, func() byte { return apu.ReadNR(14) }}
-	mem.io[0x16] = ioRegister{"NR21", func(data byte) { apu.WriteNR(21, data) }, func() byte { return apu.ReadNR(21) }}
-	mem.io[0x17] = ioRegister{"NR22", func(data byte) { apu.WriteNR(22, data) }, func() byte { return apu.ReadNR(22) }}
-	mem.io[0x18] = ioRegister{"NR23", func(data byte) { apu.WriteNR(23, data) }, func() byte { return apu.ReadNR(23) }}
-	mem.io[0x19] = ioRegister{"NR24", func(data byte) { apu.WriteNR(24, data) }, func() byte { return apu.ReadNR(24) }}
-	mem.io[0x1A] = ioRegister{"NR30", func(data byte) { apu.WriteNR(30, data) }, func() byte { return apu.ReadNR(30) }}
-	mem.io[0x1B] = ioRegister{"NR31", func(data byte) { apu.WriteNR(31, data) }, func() byte { return apu.ReadNR(31) }}
-	mem.io[0x1C] = ioRegister{"NR32", func(data byte) { apu.WriteNR(32, data) }, func() byte { return apu.ReadNR(32) }}
-	mem.io[0x1D] = ioRegister{"NR33", func(data byte) { apu.WriteNR(33, data) }, func() byte { return apu.ReadNR(33) }}
-	mem.io[0x1E] = ioRegister{"NR34", func(data byte) { apu.WriteNR(34, data) }, func() byte { return apu.ReadNR(34) }}
-	mem.io[0x20] = ioRegister{"NR41", func(data byte) { apu.WriteNR(41, data) }, func() byte { return apu.ReadNR(41) }}
-	mem.io[0x21] = ioRegister{"NR42", func(data byte) { apu.WriteNR(42, data) }, func() byte { return apu.ReadNR(42) }}
-	mem.io[0x22] = ioRegister{"NR43", func(data byte) { apu.WriteNR(43, data) }, func() byte { return apu.ReadNR(43) }}
-	mem.io[0x23] = ioRegister{"NR44", func(data byte) { apu.WriteNR(44, data) }, func() byte { return apu.ReadNR(44) }}
-	mem.io[0x24] = ioRegister{"NR50", func(data byte) { apu.WriteNR(50, data) }, func() byte { return apu.ReadNR(50) }}
-	mem.io[0x25] = ioRegister{"NR51", func(data byte) { apu.WriteNR(51, data) }, func() byte { return apu.ReadNR(51) }}
-	mem.io[0x26] = ioRegister{"NR52", func(data byte) { apu.WriteNR(52, data) }, func() byte { return apu.ReadNR(52) }}
-
-	// Wave RAM
-
-	// LCD Control, Status, Position, Scrolling and Palettes
-	mem.io[0x40] = ioRegister{"LCDC", ppu.SetControl, ppu.GetControl}
-	mem.io[0x41] = ioRegister{"STAT", ppu.SetStatus, ppu.GetStatus}
-	mem.io[0x42] = ioRegister{"SCY", ppu.SetScrollY, ppu.GetScrollY}
-	mem.io[0x43] = ioRegister{"SCX", ppu.SetScrollX, ppu.GetScrollX}
-	mem.io[0x44] = ioRegister{"LY", func(_ byte) { /* ignore write */ }, ppu.GetCurrentLine}
-	mem.io[0x45] = ioRegister{"LYC", ppu.SetCurrentLineCompare, ppu.GetCurrentLineCompare}
-	mem.io[0x46] = ioRegister{"DMA", mem.requestDMATransfer, mem.getDMAData}
-	mem.io[0x47] = ioRegister{"BGP", ppu.SetBackgroundPalette, ppu.GetBackgroundPalette}
-	mem.io[0x48] = ioRegister{"OBP0", ppu.SetObjectPalette0, ppu.GetObjectPalette0}
-	mem.io[0x49] = ioRegister{"OBP1", ppu.SetObjectPalette1, ppu.GetObjectPalette1}
-	mem.io[0x4A] = ioRegister{"WY", ppu.SetWindowY, ppu.GetWindowY}
-	mem.io[0x4B] = ioRegister{"WX", ppu.SetWindowX, ppu.GetWindowX}
-
-	// Boot flag control
-	mem.io[0x50] = ioRegister{"BOOT", mem.setBootFlag, func() byte { return 0xFF }}
+func (mem *Memory) GetGameCartridge() cartridge.Cartridge {
+	return mem.cartridge
 }
 
 func (mem *Memory) Tick() {
@@ -407,4 +345,70 @@ func (mem *Memory) readSb() byte {
 
 func (mem *Memory) writeSb(data byte) {
 	mem.sb = data
+}
+
+func (mem *Memory) initializeIOAddressSpace(
+	timer *timer.Timer,
+	ppu *gpu.PPU,
+	interrupts *interrupts.Interrupts,
+	joypad *joypad.Joypad,
+	apu *apu.APU,
+) {
+	// Joypad
+	mem.io[0x00] = ioRegister{"JOYP", joypad.WriteRegister, joypad.ReadRegister}
+
+	// Serial Data Transfer
+	mem.io[0x01] = ioRegister{"SB", mem.writeSb, mem.readSb}
+	mem.io[0x02] = ioRegister{"SC", mem.writeSc, mem.readSc}
+
+	// Timer and Divider
+	mem.io[0x04] = ioRegister{"DIV", func(_ byte) { timer.ResetDiv() }, timer.GetDiv}
+	mem.io[0x05] = ioRegister{"TIMA", timer.SetTima, timer.GetTima}
+	mem.io[0x06] = ioRegister{"TMA", timer.SetTma, timer.GetTma}
+	mem.io[0x07] = ioRegister{"TAC", timer.SetTac, timer.GetTac}
+
+	// Interrupts
+	mem.io[0x0F] = ioRegister{"IF", interrupts.SetFlags, interrupts.GetFlags}
+
+	// Audio
+	mem.io[0x10] = ioRegister{"NR10", func(data byte) { apu.WriteNR(10, data) }, func() byte { return apu.ReadNR(10) }}
+	mem.io[0x11] = ioRegister{"NR11", func(data byte) { apu.WriteNR(11, data) }, func() byte { return apu.ReadNR(11) }}
+	mem.io[0x12] = ioRegister{"NR12", func(data byte) { apu.WriteNR(12, data) }, func() byte { return apu.ReadNR(12) }}
+	mem.io[0x13] = ioRegister{"NR13", func(data byte) { apu.WriteNR(13, data) }, func() byte { return apu.ReadNR(13) }}
+	mem.io[0x14] = ioRegister{"NR14", func(data byte) { apu.WriteNR(14, data) }, func() byte { return apu.ReadNR(14) }}
+	mem.io[0x16] = ioRegister{"NR21", func(data byte) { apu.WriteNR(21, data) }, func() byte { return apu.ReadNR(21) }}
+	mem.io[0x17] = ioRegister{"NR22", func(data byte) { apu.WriteNR(22, data) }, func() byte { return apu.ReadNR(22) }}
+	mem.io[0x18] = ioRegister{"NR23", func(data byte) { apu.WriteNR(23, data) }, func() byte { return apu.ReadNR(23) }}
+	mem.io[0x19] = ioRegister{"NR24", func(data byte) { apu.WriteNR(24, data) }, func() byte { return apu.ReadNR(24) }}
+	mem.io[0x1A] = ioRegister{"NR30", func(data byte) { apu.WriteNR(30, data) }, func() byte { return apu.ReadNR(30) }}
+	mem.io[0x1B] = ioRegister{"NR31", func(data byte) { apu.WriteNR(31, data) }, func() byte { return apu.ReadNR(31) }}
+	mem.io[0x1C] = ioRegister{"NR32", func(data byte) { apu.WriteNR(32, data) }, func() byte { return apu.ReadNR(32) }}
+	mem.io[0x1D] = ioRegister{"NR33", func(data byte) { apu.WriteNR(33, data) }, func() byte { return apu.ReadNR(33) }}
+	mem.io[0x1E] = ioRegister{"NR34", func(data byte) { apu.WriteNR(34, data) }, func() byte { return apu.ReadNR(34) }}
+	mem.io[0x20] = ioRegister{"NR41", func(data byte) { apu.WriteNR(41, data) }, func() byte { return apu.ReadNR(41) }}
+	mem.io[0x21] = ioRegister{"NR42", func(data byte) { apu.WriteNR(42, data) }, func() byte { return apu.ReadNR(42) }}
+	mem.io[0x22] = ioRegister{"NR43", func(data byte) { apu.WriteNR(43, data) }, func() byte { return apu.ReadNR(43) }}
+	mem.io[0x23] = ioRegister{"NR44", func(data byte) { apu.WriteNR(44, data) }, func() byte { return apu.ReadNR(44) }}
+	mem.io[0x24] = ioRegister{"NR50", func(data byte) { apu.WriteNR(50, data) }, func() byte { return apu.ReadNR(50) }}
+	mem.io[0x25] = ioRegister{"NR51", func(data byte) { apu.WriteNR(51, data) }, func() byte { return apu.ReadNR(51) }}
+	mem.io[0x26] = ioRegister{"NR52", func(data byte) { apu.WriteNR(52, data) }, func() byte { return apu.ReadNR(52) }}
+
+	// Wave RAM
+
+	// LCD Control, Status, Position, Scrolling and Palettes
+	mem.io[0x40] = ioRegister{"LCDC", ppu.SetControl, ppu.GetControl}
+	mem.io[0x41] = ioRegister{"STAT", ppu.SetStatus, ppu.GetStatus}
+	mem.io[0x42] = ioRegister{"SCY", ppu.SetScrollY, ppu.GetScrollY}
+	mem.io[0x43] = ioRegister{"SCX", ppu.SetScrollX, ppu.GetScrollX}
+	mem.io[0x44] = ioRegister{"LY", func(_ byte) { /* ignore write */ }, ppu.GetCurrentLine}
+	mem.io[0x45] = ioRegister{"LYC", ppu.SetCurrentLineCompare, ppu.GetCurrentLineCompare}
+	mem.io[0x46] = ioRegister{"DMA", mem.requestDMATransfer, mem.getDMAData}
+	mem.io[0x47] = ioRegister{"BGP", ppu.SetBackgroundPalette, ppu.GetBackgroundPalette}
+	mem.io[0x48] = ioRegister{"OBP0", ppu.SetObjectPalette0, ppu.GetObjectPalette0}
+	mem.io[0x49] = ioRegister{"OBP1", ppu.SetObjectPalette1, ppu.GetObjectPalette1}
+	mem.io[0x4A] = ioRegister{"WY", ppu.SetWindowY, ppu.GetWindowY}
+	mem.io[0x4B] = ioRegister{"WX", ppu.SetWindowX, ppu.GetWindowX}
+
+	// Boot flag control
+	mem.io[0x50] = ioRegister{"BOOT", mem.setBootFlag, func() byte { return 0xFF }}
 }

@@ -68,6 +68,10 @@ func (e *Emulator) InsertCartridge(pathToCartridgeImage string) {
 
 func (e *Emulator) Run() {
 	go func() {
+
+		// save cartridge RAM when emulator loop ends
+		defer e.memory.GetGameCartridge().Save()
+
 		var count int
 		for !e.stopped {
 

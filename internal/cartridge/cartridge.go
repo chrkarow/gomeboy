@@ -4,7 +4,9 @@ import (
 	"fmt"
 	log "go.uber.org/zap"
 	"os"
+	"strings"
 	"time"
+	"unicode"
 )
 
 var ramSizes = [6]int{
@@ -44,6 +46,9 @@ type Cartridge interface {
 	// Allowed values for address depend on the underlying cartridge type (which MBC is used)
 	// RAM always starts at 0x0000. Don't simply use the register ranges to access.
 	WriteRAM(address uint16, data byte)
+
+	// Save persists the RAM data to survive turning off the emulator
+	Save()
 }
 
 func LoadCartridgeImage(fileName string) Cartridge {
@@ -79,4 +84,8 @@ func createCartridge(data *[]byte) Cartridge {
 		log.L().Panic("Required MBC not implemented", log.String("value", fmt.Sprintf("0x%02X", (*data)[0x147])))
 	}
 	return nil
+}
+
+func getCartridgeName(rom *[]byte) string {
+	return strings.ToLower(strings.TrimFunc(string((*rom)[0x134:0x13F]), func(r rune) bool { return !unicode.IsPrint(r) }))
 }

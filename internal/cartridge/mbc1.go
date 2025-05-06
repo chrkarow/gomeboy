@@ -1,6 +1,9 @@
 package cartridge
 
-import log "go.uber.org/zap"
+import (
+	log "go.uber.org/zap"
+	"os"
+)
 
 // This is the first MBC chip for the Game Boy. Any newer MBC chips work similarly,
 // so it is relatively easy to upgrade a program from one MBC chip to another —
@@ -25,6 +28,7 @@ type mbc1 struct {
 	currentRAMBank byte
 	mode           byte
 	ramEnabled     bool
+	name           string
 }
 
 func newMBC1(rom *[]byte, ramSize int) Cartridge {
@@ -32,6 +36,7 @@ func newMBC1(rom *[]byte, ramSize int) Cartridge {
 		rom:   rom,
 		ram:   make([]byte, ramSize),
 		bank1: 1,
+		name:  getCartridgeName(rom),
 	}
 }
 
@@ -48,7 +53,13 @@ func (mbc *mbc1) ReadROM(address uint16) byte {
 func (mbc *mbc1) HandleBanking(address uint16, data byte) {
 	switch {
 	case address < 0x2000: // Enable/Disable RAM
+		wasEnabled := mbc.ramEnabled
 		mbc.ramEnabled = data&0x0F == 0x0A
+		if wasEnabled && !mbc.ramEnabled {
+			mbc.Save()
+		} else if !wasEnabled && mbc.ramEnabled {
+			mbc.load()
+		}
 
 	case address < 0x4000: // write to register BANK1
 		mbc.bank1 = data & 0x1F // masking with 0x31 (aka. 0b00011111) to get the lower 5 bits
@@ -114,4 +125,21 @@ func (mbc *mbc1) getROMBank(address uint16) uint32 {
 		return uint32(mbc.bank2)<<19 | uint32(mbc.bank1)<<14
 	}
 	return 0
+}
+
+func (mbc *mbc1) Save() {
+	err := os.WriteFile(mbc.name+".sgo", mbc.ram, 0644)
+	if err != nil {
+		log.L().Error("Error writing save file", log.Error(err))
+		return
+	}
+}
+
+func (mbc *mbc1) load() {
+	data, err := os.ReadFile(mbc.name + ".sgo")
+	if err != nil {
+		log.L().Error("Error reading save file", log.Error(err))
+		return
+	}
+	mbc.ram = data
 }

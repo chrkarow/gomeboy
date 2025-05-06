@@ -1,6 +1,8 @@
 package cartridge
 
-import log "go.uber.org/zap"
+import (
+	log "go.uber.org/zap"
+)
 
 // Small games of not more than 32 KiB ROM do not require
 // a MBC chip for ROM banking. The ROM is directly mapped
@@ -33,4 +35,12 @@ func (mbc *noMBC) WriteRAM(address uint16, data byte) {
 
 func (mbc *noMBC) ReadRAM(address uint16) byte {
 	return mbc.ram[address]
+}
+
+func (mbc *noMBC) Save() {
+	// Nothing to do here
+}
+
+func (mbc *noMBC) load() {
+	// Nothing to do here
 }

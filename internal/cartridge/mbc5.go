@@ -1,6 +1,9 @@
 package cartridge
 
-import log "go.uber.org/zap"
+import (
+	log "go.uber.org/zap"
+	"os"
+)
 
 type mbc5 struct {
 	rom        *[]byte
@@ -9,6 +12,7 @@ type mbc5 struct {
 	romb1      byte
 	ramb       byte
 	ramEnabled bool
+	name       string
 }
 
 func newMBC5(rom *[]byte, ramSize int) Cartridge {
@@ -16,6 +20,7 @@ func newMBC5(rom *[]byte, ramSize int) Cartridge {
 		rom:   rom,
 		ram:   make([]byte, ramSize),
 		romb0: 1,
+		name:  getCartridgeName(rom),
 	}
 }
 
@@ -78,4 +83,21 @@ func (mbc *mbc5) ReadRAM(address uint16) byte {
 	physicalAddress := (uint16(mbc.ramb)<<13 | address&0x1FFF) & uint16(len(mbc.ram)-1)
 
 	return mbc.ram[physicalAddress]
+}
+
+func (mbc *mbc5) Save() {
+	err := os.WriteFile(mbc.name+".sgo", mbc.ram, 0644)
+	if err != nil {
+		log.L().Error("Error writing save file", log.Error(err))
+		return
+	}
+}
+
+func (mbc *mbc5) load() {
+	data, err := os.ReadFile(mbc.name + ".sgo")
+	if err != nil {
+		log.L().Error("Error reading save file", log.Error(err))
+		return
+	}
+	mbc.ram = data
 }

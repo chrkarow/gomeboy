@@ -3,6 +3,7 @@ package cartridge
 import (
 	"gameboy-emulator/internal/util"
 	log "go.uber.org/zap"
+	"os"
 	"time"
 )
 
@@ -48,6 +49,7 @@ type (
 		getNow     nowProvider
 		ticker     *time.Ticker
 		stopTicker chan bool
+		name       string
 	}
 )
 
@@ -59,6 +61,7 @@ func newMBC3(rom *[]byte, ramSize int, getNow nowProvider) Cartridge {
 		lastUpdate: getNow().UTC(),
 		getNow:     getNow,
 		stopTicker: make(chan bool),
+		name:       getCartridgeName(rom),
 	}
 	mbc.startRTC()
 	return mbc
@@ -282,4 +285,31 @@ func (mbc *mbc3) tick() {
 		mbc.shadowRtcDH--
 		util.SetBit(&mbc.shadowRtcDH, 7)
 	}
+}
+
+func (mbc *mbc3) Save() {
+	saveState := mbc.ram[:]
+	saveState = append(saveState, mbc.shadowRtcS, mbc.shadowRtcM, mbc.shadowRtcH, mbc.shadowRtcDL, mbc.shadowRtcDH)
+	saveState = append(saveState, []byte(mbc.lastUpdate.Format(time.DateTime))...)
+
+	err := os.WriteFile(mbc.name+".sgo", mbc.ram, 0644)
+	if err != nil {
+		log.L().Error("Error writing save file", log.Error(err))
+	}
+}
+
+func (mbc *mbc3) load() {
+	data, err := os.ReadFile(mbc.name + ".sgo")
+	if err != nil {
+		return
+	}
+
+	ramSize := len(mbc.ram)
+	mbc.ram = data[:ramSize]
+	mbc.shadowRtcS = data[ramSize]
+	mbc.shadowRtcM = data[ramSize+1]
+	mbc.shadowRtcH = data[ramSize+2]
+	mbc.shadowRtcDL = data[ramSize+3]
+	mbc.shadowRtcDH = data[ramSize+4]
+	mbc.lastUpdate, _ = time.Parse(time.DateTime, string(data[ramSize+5:]))
 }

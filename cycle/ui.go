@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"gameboy-emulator/internal/cycle"
@@ -143,6 +144,7 @@ func (ui *UserInterface) handleOpen() {
 		ui.emulator.Run()
 		w.Close()
 	}, w)
+	fo.SetFilter(storage.NewExtensionFileFilter([]string{".gb"}))
 
 	fo.Resize(size)
 	fo.Show()
