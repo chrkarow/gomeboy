@@ -1081,7 +1081,8 @@ func halt(c *CPU) {
 
 	if !c.interrupts.MasterEnabled() && c.interrupts.InterruptsPending() {
 		c.ops.Push(func(c *CPU) {
-			c.ir = instructions[c.pc]
+			opcode := c.mmu.Read(c.pc)
+			c.ir = instructions[opcode]
 			// Do not increment PC - HALT BUG
 		})
 	} else {
@@ -2396,12 +2397,6 @@ func enqueueInterruptRoutine(c *CPU, t interrupts.InterruptType, afterInstrFetch
 	// Write low Byte of PC
 	c.ops.Push(func(c *CPU) {
 		c.mmu.Write(c.sp, byte(c.pc))
-
-		if c.interrupts.MustHandleInterrupt() {
-			c.interrupts.HandleInterrupt(func(ty interrupts.InterruptType) {
-				t = ty
-			})
-		}
 
 		switch t {
 		case interrupts.VBlank:

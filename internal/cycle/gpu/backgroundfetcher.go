@@ -126,6 +126,7 @@ func (f *BackgroundFetcher) OutputPixel() (pixel byte, skip bool) {
 
 	f.dequeuedPixelCount++
 	if f.skippedPixel < f.bgPixelToSkip {
+		_, _ = f.pixelQueue.Pop()
 		f.skippedPixel++
 		return 0, true
 	}

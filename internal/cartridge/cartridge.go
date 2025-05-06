@@ -4,6 +4,7 @@ import (
 	"fmt"
 	log "go.uber.org/zap"
 	"os"
+	"time"
 )
 
 var ramSizes = [6]int{
@@ -66,6 +67,10 @@ func createCartridge(data *[]byte) Cartridge {
 		return newMBC1(data, ramSize)
 	case 0x05, 0x06:
 		return newMBC2(data)
+	case 0x0F, 0x10, 0x11:
+		return newMBC3(data, ramSize, time.Now)
+	case 0x12, 0x13:
+		return newMBC3(data, ramSize, time.Now)
 	case 0x19, 0x1A, 0x1B:
 		return newMBC5(data, ramSize)
 	case 0x1C, 0x1D, 0x1E:
