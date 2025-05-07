@@ -1,7 +1,16 @@
 # GOmeBoy
-A GameBoy emulator written in Go
+
+A GameBoy emulator written in Go.
+
+This project actually contains two models:
+
+- `step/` and `internal/step`contain an emulator model which follows a stepped approach in which the CPU is returning
+  how many steps it has needed to execute an particular instruction.
+- `cyle/` and `internal/cycle` contain the more detailed and advanced model based on single clock cycles (T-Cycles) and
+  an attempt to recreate the actual way the GameBoy's PPU is drawing pixels to the screen.
 
 ## Main Sources
+
 - PanDocs: https://gbdev.io/pandocs
 - OpCode table: https://izik1.github.io/gbops/
 - OpCode reference: https://rgbds.gbdev.io/docs/v0.9.1/gbz80.7
@@ -10,6 +19,7 @@ A GameBoy emulator written in Go
 - Emulator-Sourcen in C++: https://github.com/CTurt/Cinoop/blob/master/source/cpu.c#L429
 
 ## Other stuff
+
 - DMG-01 - How to emulate a GameBoy: https://rylev.github.io/DMG-01/public/book/introduction.html
 - https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM
 - https://b13rg.icecdn.tech/Gameboy-Bank-Switching/
