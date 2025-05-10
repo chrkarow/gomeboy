@@ -1,14 +1,15 @@
 package main
 
 import (
-	"gameboy-emulator/internal/cycle"
 	"gameboy-emulator/internal/cycle/apu"
 	"gameboy-emulator/internal/cycle/cpu"
+	"gameboy-emulator/internal/cycle/emulation"
 	"gameboy-emulator/internal/cycle/gpu"
 	"gameboy-emulator/internal/cycle/interrupts"
 	"gameboy-emulator/internal/cycle/joypad"
 	"gameboy-emulator/internal/cycle/memory"
 	"gameboy-emulator/internal/cycle/timer"
+	"github.com/ebitengine/oto/v3"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -29,17 +30,33 @@ func main() {
 	}
 
 	// Wire dependencies
-	apuMock := apu.New()
-	inter := interrupts.New()
-	joyp := joypad.New(inter)
-	tim := timer.New(inter)
-	lcd := gpu.NewPPU(inter)
-	mem := memory.New(inter, tim, lcd, joyp, apuMock, (*[0x100]byte)(bios))
-	processor := cpu.New(mem, inter)
+	a := apu.New()
+	i := interrupts.New()
+	j := joypad.New(i)
+	t := timer.New(i)
+	p := gpu.NewPPU(i)
+	m := memory.New(i, t, p, j, a, (*[0x100]byte)(bios))
+	c := cpu.New(m, i)
 
-	emulator := cycle.NewEmulator(inter, joyp, tim, lcd, mem, processor, apuMock)
+	emulatorCore := emulation.NewCore(i, j, t, p, m, c, a)
+	defer emulatorCore.SaveGame()
 
-	ui := NewUserInterface(emulator)
+	// Setup sound
+	op := &oto.NewContextOptions{}
+	op.SampleRate = apu.SamplingRate
+	op.ChannelCount = 2
+	op.Format = oto.FormatUnsignedInt8
+	op.BufferSize = 4096
+
+	ctx, ready, err := oto.NewContext(op)
+	if err != nil {
+		panic(err)
+	}
+	<-ready
+
+	// Create Sound d
+	driver := NewSoundDriver(ctx, emulatorCore)
+	ui := NewUserInterface(driver)
 	ui.ShowAndRun()
 }
 

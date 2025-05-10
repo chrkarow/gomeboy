@@ -94,8 +94,7 @@ func (c *CPU) Tick() {
 	switch c.state {
 	case executing:
 		// Only do something every 4 Cycles
-		c.ticks++
-		if c.ticks < 4 {
+		if c.ticks++; c.ticks < 4 {
 			return
 		}
 		c.ticks = 0

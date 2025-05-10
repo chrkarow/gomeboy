@@ -59,7 +59,7 @@ func (j *Joypad) KeyPressed(index byte) {
 		return
 	}
 
-	util.UnsetBit(&j.state, index)
+	util.UnsetBit8(&j.state, index)
 
 	if (index >= 4 && j.control == 0xD0) || (index < 4 && j.control == 0xE0) {
 		j.interrupts.RequestInterrupt(interrupts.Joypad)

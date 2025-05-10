@@ -21,7 +21,7 @@ func TestUnsetSet(t *testing.T) {
 	value := byte(0xFF)
 
 	// WHEN
-	UnsetBit(&value, 3)
+	UnsetBit8(&value, 3)
 
 	// THEN
 	assert.Equal(t, byte(0xF7), value)

@@ -10,16 +10,26 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"gameboy-emulator/internal/cycle"
+	"gameboy-emulator/internal/cycle/emulation"
 	"image"
 	"image/color"
 )
 
-var colors = [4]color.NRGBA{
-	{255, 255, 255, 255},
-	{192, 192, 192, 255},
-	{96, 96, 96, 255},
-	{0, 0, 0, 255},
+const currentPalette = "gbOriginal"
+
+var colorPalettes = map[string][4]color.NRGBA{
+	"plainGrayscale": {
+		{255, 255, 255, 255},
+		{192, 192, 192, 255},
+		{96, 96, 96, 255},
+		{0, 0, 0, 255},
+	},
+	"gbOriginal": {
+		{155, 188, 55, 255},
+		{139, 172, 15, 255},
+		{48, 98, 48, 255},
+		{15, 56, 15, 255},
+	},
 }
 
 var keyMap = map[fyne.KeyName]byte{
@@ -45,16 +55,16 @@ type UserInterface struct {
 	pauseAction *widget.ToolbarAction
 	playAction  *widget.ToolbarAction
 
-	emulator *cycle.Emulator
+	driver emulation.Driver
 }
 
-func NewUserInterface(emu *cycle.Emulator) *UserInterface {
+func NewUserInterface(driver emulation.Driver) *UserInterface {
 	ui := &UserInterface{
-		emulator: emu,
+		driver: driver,
 	}
 	ui.initialize()
 
-	emu.SetScreenHandler(ui.UpdateFrame)
+	driver.GetCore().SetScreenHandler(ui.UpdateFrame)
 
 	return ui
 }
@@ -97,19 +107,19 @@ func (ui *UserInterface) initialize() {
 
 	if deskCanvas, ok := ui.window.Canvas().(desktop.Canvas); ok {
 		deskCanvas.SetOnKeyDown(func(e *fyne.KeyEvent) {
-			if e.Name == fyne.KeyT {
-				ui.emulator.ToggleTurbo()
-				return
-			}
+			//if e.Name == fyne.KeyT {
+			//	ui.emulator.ToggleTurbo()
+			//	return
+			//}
 
 			if keyIndex, exists := keyMap[e.Name]; exists {
-				ui.emulator.KeyPressed(keyIndex)
+				ui.driver.GetCore().KeyPressed(keyIndex)
 			}
 		})
 
 		deskCanvas.SetOnKeyUp(func(e *fyne.KeyEvent) {
 			if keyIndex, exists := keyMap[e.Name]; exists {
-				ui.emulator.KeyReleased(keyIndex)
+				ui.driver.GetCore().KeyReleased(keyIndex)
 			}
 		})
 	}
@@ -140,8 +150,8 @@ func (ui *UserInterface) handleOpen() {
 		ui.stopAction.Enable()
 		ui.openAction.Disable()
 
-		ui.emulator.InsertCartridge(f.URI().Path())
-		ui.emulator.Run()
+		ui.driver.GetCore().InsertCartridge(f.URI().Path())
+		ui.driver.Run()
 		w.Close()
 	}, w)
 	fo.SetFilter(storage.NewExtensionFileFilter([]string{".gb"}))
@@ -157,14 +167,14 @@ func (ui *UserInterface) handleStop() {
 	ui.playAction.Enable()
 	ui.openAction.Enable()
 
-	ui.emulator.Stop()
+	ui.driver.Stop()
 }
 
 func (ui *UserInterface) handlePause() {
 	ui.pauseAction.Disable()
 	ui.playAction.Enable()
 
-	ui.emulator.TogglePause()
+	ui.driver.TogglePause()
 }
 
 func (ui *UserInterface) handlePlay() {
@@ -172,10 +182,10 @@ func (ui *UserInterface) handlePlay() {
 	ui.stopAction.Enable()
 	ui.pauseAction.Enable()
 
-	if ui.emulator.IsPaused() {
-		ui.emulator.TogglePause()
+	if ui.driver.IsPaused() {
+		ui.driver.TogglePause()
 	} else {
-		ui.emulator.Run()
+		ui.driver.Run()
 	}
 }
 
@@ -183,7 +193,7 @@ func (ui *UserInterface) UpdateFrame(screen [144][160]byte) {
 	go fyne.DoAndWait(func() {
 		for y, line := range screen {
 			for x, pixel := range line {
-				ui.screenContents.Set(x, y, colors[pixel])
+				ui.screenContents.Set(x, y, colorPalettes[currentPalette][pixel])
 			}
 		}
 

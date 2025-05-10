@@ -18,9 +18,15 @@ func SetBit(value *byte, bitIndex byte) {
 	*value |= mask
 }
 
-// UnsetBit sets the bit at the given index to 0
-func UnsetBit(value *byte, bitIndex byte) {
+// UnsetBit8 sets the bit at the given index to 0
+func UnsetBit8(value *byte, bitIndex byte) {
 	mask := ^byte(1 << bitIndex)
+	*value &= mask
+}
+
+// UnsetBit8 sets the bit at the given index to 0
+func UnsetBit16(value *uint16, bitIndex byte) {
+	mask := ^uint16(1 << bitIndex)
 	*value &= mask
 }
 
@@ -32,4 +38,12 @@ func IsEmpty(s []byte) bool {
 		}
 	}
 	return true
+}
+
+func Sum(a []byte) int {
+	var result int
+	for _, e := range a {
+		result += int(e)
+	}
+	return result
 }

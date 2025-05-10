@@ -100,7 +100,7 @@ func (p *PPU) Tick() {
 		}
 	} else {
 		if p.isEnabled() {
-			util.UnsetBit(&p.status, 2) // set LYC == LY flag to 0
+			util.UnsetBit8(&p.status, 2) // set LYC == LY flag to 0
 			p.display.Enable()
 			p.transitionToOamScan()
 
@@ -304,7 +304,7 @@ func (p *PPU) SetWindowX(data byte) {
 //
 // Source: https://gbdev.io/pandocs/STAT.html#ff45--lyc-ly-compare
 func (p *PPU) doCompareLYCAndLC() {
-	util.UnsetBit(&p.status, 2) // set LYC == LY flag to 0
+	util.UnsetBit8(&p.status, 2) // set LYC == LY flag to 0
 	if p.currentLine != 0 && p.currentLine == p.currentLineCompare {
 		util.SetBit(&p.status, 2)
 
