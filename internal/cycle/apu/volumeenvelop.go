@@ -71,3 +71,17 @@ func (e *VolumeEnvelope) Read() byte {
 func (e *VolumeEnvelope) GetVolume() byte {
 	return e.volume
 }
+
+func (e *VolumeEnvelope) Disable() {
+	e.initial = 0
+	e.increase = false
+	e.sweepPace = 0
+	e.volume = 0
+	e.enabled = false
+	e.periodTimer = 0
+	e.ticks = 0
+}
+
+func (e *VolumeEnvelope) IsEnabled() bool {
+	return e.enabled
+}

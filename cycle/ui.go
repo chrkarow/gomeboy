@@ -15,7 +15,7 @@ import (
 	"image/color"
 )
 
-const currentPalette = "gbOriginal"
+const currentPalette = "plainGrayscale"
 
 var colorPalettes = map[string][4]color.NRGBA{
 	"plainGrayscale": {

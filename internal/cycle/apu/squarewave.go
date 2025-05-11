@@ -11,15 +11,13 @@ type (
 	}
 
 	SquareWave struct {
-		lengthTimer           byte
-		lengthTimerStartValue byte
-		dutyCycleIndex        byte
+		lengthCounter byte
+		lengthEnable  bool
 
 		volumeEnvelope *VolumeEnvelope
 
-		period       uint
-		trigger      bool
-		lengthEnable bool
+		period         uint
+		dutyCycleIndex byte
 
 		frequencyTimer uint
 		dutyPosition   byte
@@ -68,9 +66,9 @@ func (sq *SquareWave) LengthTick() {
 	if !sq.lengthEnable {
 		return
 	}
-	sq.lengthTimer++
-	if sq.lengthTimer == squareWaveLengthTimerMax {
-		sq.enabled = false
+	sq.lengthCounter--
+	if sq.lengthCounter == 0 {
+		sq.Disable()
 	}
 }
 
@@ -83,8 +81,8 @@ func (sq *SquareWave) Trigger() {
 	sq.dutyPosition = 0
 	sq.currentSample = 0
 	sq.resetFrequencyTimer()
-	if sq.lengthTimer == squareWaveLengthTimerMax {
-		sq.lengthTimer = sq.lengthTimerStartValue
+	if sq.lengthCounter == 0 {
+		sq.lengthCounter = squareWaveLengthTimerMax
 	}
 	sq.volumeEnvelope.Trigger()
 }
@@ -97,6 +95,17 @@ func (sq *SquareWave) IsEnabled() bool {
 	return sq.enabled
 }
 
+func (sq *SquareWave) Disable() {
+	sq.volumeEnvelope.Disable()
+	sq.enabled = false
+	sq.currentSample = 0x0
+	sq.dutyCycleIndex = 0
+	sq.dutyPosition = 0
+	sq.period = 0
+	sq.frequencyTimer = 0
+	sq.ticks = 0
+}
+
 func (sq *SquareWave) resetFrequencyTimer() {
 	sq.frequencyTimer = (2048 - sq.period) * 4
 }
@@ -104,17 +113,21 @@ func (sq *SquareWave) resetFrequencyTimer() {
 // SetNRx1 sets the length timer and duty cycle
 func (sq *SquareWave) SetNRx1(data byte) {
 	sq.dutyCycleIndex = data >> 6
-	sq.lengthTimerStartValue = data & 0x3F
+
+	sq.lengthCounter = squareWaveLengthTimerMax - (data & 0x3F)
 }
 
 // GetNRx1 returns the value of the NRx1 register. only bit 6 and 7 are readable. All others set to 1.
 func (sq *SquareWave) GetNRx1() byte {
-	return 0xFF & (sq.dutyCycleIndex << 6)
+	return (sq.dutyCycleIndex << 6) | 0x3F
 }
 
 // SetNRx2 controls the volume envelope of this channel
 func (sq *SquareWave) SetNRx2(data byte) {
 	sq.volumeEnvelope.Write(data)
+	if !sq.volumeEnvelope.IsEnabled() {
+		sq.Disable()
+	}
 }
 
 // GetNRx2 returns the value of the NRx2 register.

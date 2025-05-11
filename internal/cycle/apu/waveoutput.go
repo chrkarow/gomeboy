@@ -11,11 +11,12 @@ type (
 		Trigger()
 		GetSample() byte
 		IsEnabled() bool
+		Disable()
 	}
 
 	WaveOutput struct {
-		lengthTimer           uint16
-		lengthTimerStartValue uint16
+		lengthCounter uint16
+		lengthEnable  bool
 
 		outputLevel byte
 		volumeShift byte
@@ -28,7 +29,6 @@ type (
 		frequencyTimer uint
 		samplePosition byte
 		ticks          uint
-		lengthEnable   bool
 		enabled        bool
 		currentSample  byte
 	}
@@ -71,8 +71,8 @@ func (w *WaveOutput) LengthTick() {
 	if !w.lengthEnable {
 		return
 	}
-	w.lengthTimer++
-	if w.lengthTimer == waveOutputLengthTimerMax {
+	w.lengthCounter--
+	if w.lengthCounter == 0 {
 		w.enabled = false
 	}
 }
@@ -81,8 +81,8 @@ func (w *WaveOutput) Trigger() {
 	w.enabled = true
 	w.samplePosition = 0
 	w.currentSample = 0
-	if w.lengthTimer == waveOutputLengthTimerMax {
-		w.lengthTimer = w.lengthTimerStartValue
+	if w.lengthCounter == 0 {
+		w.lengthCounter = waveOutputLengthTimerMax
 	}
 	w.resetFrequencyTimer()
 }
@@ -95,6 +95,17 @@ func (w *WaveOutput) IsEnabled() bool {
 	return w.enabled
 }
 
+func (w *WaveOutput) Disable() {
+	w.enabled = false
+	w.currentSample = 0x0
+	w.outputLevel = 0
+	w.volumeShift = 0
+	w.dacOn = false
+	w.frequencyTimer = 0
+	w.samplePosition = 0
+	w.ticks = 0
+}
+
 func (w *WaveOutput) WriteWaveRAM(address byte, data byte) {
 	w.waveRAM[address&0x0F] = data
 }
@@ -105,6 +116,9 @@ func (w *WaveOutput) ReadWaveRAM(address byte) byte {
 
 // SetNRx0 turns the DAC on or off
 func (w *WaveOutput) SetNRx0(data byte) {
+	if w.dacOn && !util.BitIsSet8(data, 7) {
+		w.Disable()
+	}
 	w.dacOn = util.BitIsSet8(data, 7)
 }
 
@@ -117,7 +131,7 @@ func (w *WaveOutput) GetNRx0() byte {
 
 // SetNRx1 sets the length timer
 func (w *WaveOutput) SetNRx1(data byte) {
-	w.lengthTimerStartValue = uint16(data)
+	w.lengthCounter = waveOutputLengthTimerMax - uint16(data)
 }
 
 func (w *WaveOutput) SetNRx2(data byte) {

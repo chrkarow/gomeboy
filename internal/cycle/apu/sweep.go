@@ -94,6 +94,16 @@ func (s *SweepableSquareWave) IsEnabled() bool {
 	return s.squareWave.IsEnabled()
 }
 
+func (s *SweepableSquareWave) Disable() {
+	s.enabled = false
+	s.pace = 0
+	s.subtract = false
+	s.individualStep = 0
+	s.shadowPeriod = 0
+	s.sweepTimer = 0
+	s.squareWave.Disable()
+}
+
 func (s *SweepableSquareWave) calculateNewPeriod() (newPeriod uint, overflow bool) {
 	periodAdj := s.shadowPeriod >> s.individualStep
 

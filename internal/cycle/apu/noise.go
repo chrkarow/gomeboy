@@ -7,13 +7,13 @@ const noiseLengthTimerMax = 64
 type Noise struct {
 	lfsr uint16
 
-	lengthTimer           byte
-	lengthTimerStartValue byte
-	lengthEnable          bool
-	frequencyTimer        uint
-	clockShift            byte
-	use7Bit               bool
-	clockDivider          byte
+	lengthCounter byte
+	lengthEnable  bool
+
+	frequencyTimer uint
+	clockShift     byte
+	use7Bit        bool
+	clockDivider   byte
 
 	volumeEnvelope *VolumeEnvelope
 	currentSample  byte
@@ -61,9 +61,9 @@ func (n *Noise) LengthTick() {
 		return
 	}
 
-	n.lengthTimer++
-	if n.lengthTimer == noiseLengthTimerMax {
-		n.enabled = false
+	n.lengthCounter--
+	if n.lengthCounter == 0 {
+		n.Disable()
 	}
 }
 
@@ -76,8 +76,8 @@ func (n *Noise) Trigger() {
 	n.lfsr = 0
 	n.enabled = true
 	n.currentSample = 0
-	if n.lengthTimer == noiseLengthTimerMax {
-		n.lengthTimer = n.lengthTimerStartValue
+	if n.lengthCounter == 0 {
+		n.lengthCounter = noiseLengthTimerMax
 	}
 	n.resetFrequencyTimer()
 }
@@ -90,14 +90,28 @@ func (n *Noise) IsEnabled() bool {
 	return n.enabled
 }
 
+func (n *Noise) Disable() {
+	n.enabled = false
+	n.currentSample = 0
+	n.volumeEnvelope.Disable()
+	n.lfsr = 0
+	n.frequencyTimer = 0
+	n.clockShift = 0
+	n.use7Bit = false
+	n.clockDivider = 0
+}
+
 // SetNRx1 sets the length timer
 func (n *Noise) SetNRx1(data byte) {
-	n.lengthTimerStartValue = data & 0x3F
+	n.lengthCounter = noiseLengthTimerMax - (data & 0x3F)
 }
 
 // SetNRx2 controls the volume envelope of this channel
 func (n *Noise) SetNRx2(data byte) {
 	n.volumeEnvelope.Write(data)
+	if !n.volumeEnvelope.IsEnabled() {
+		n.Disable()
+	}
 }
 
 // GetNRx2 returns the value of the NRx2 register.
