@@ -112,7 +112,7 @@ func (n *Noise) SetNRx1(data byte) {
 // SetNRx2 controls the volume envelope of this channel
 func (n *Noise) SetNRx2(data byte) {
 	n.volumeEnvelope.Write(data)
-	if !n.volumeEnvelope.IsEnabled() {
+	if n.enabled && !n.volumeEnvelope.IsEnabled() {
 		n.Disable()
 	}
 }

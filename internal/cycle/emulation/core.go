@@ -63,10 +63,11 @@ func (e *Core) InsertCartridge(pathToCartridgeImage string) {
 
 func (e *Core) Tick() (left byte, right byte, play bool) {
 	e.cpu.Tick()
-	e.memory.Tick()
 	e.timer.Tick()
 	e.ppu.Tick()
-	return e.apu.Tick()
+	left, right, play = e.apu.Tick()
+	e.memory.Tick()
+	return
 }
 
 func (e *Core) SaveGame() {

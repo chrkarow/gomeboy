@@ -30,11 +30,10 @@ type (
 		bgPalette          [4]byte    // BGP (0xFF47) as array for easier access
 		objPalettes        [2][4]byte // 0 = OBP0 (0xFF48), 1 = OBP1 (0xFF48) in nested arrays for easier access
 
-		state         ppuState
-		display       *Display
-		ticks         uint16
-		xPos          byte
-		pendingWrites util.Queue[func(*PPU)]
+		state   ppuState
+		display *Display
+		ticks   uint16
+		xPos    byte
 
 		interruptSink     interrupts.InterruptSink
 		backgroundFetcher *BackgroundFetcher
@@ -52,7 +51,6 @@ func NewPPU(interruptSink interrupts.InterruptSink) *PPU {
 	p := &PPU{
 		display:       NewDisplay(),
 		interruptSink: interruptSink,
-		pendingWrites: util.Queue[func(*PPU)]{},
 	}
 	p.Reset()
 	return p
@@ -73,19 +71,9 @@ func (p *PPU) Reset() {
 	p.ticks = 0
 	p.state = hBlank
 	p.setPPUMode(hBlank)
-	p.pendingWrites.Clear()
 }
 
 func (p *PPU) Tick() {
-
-	if p.pendingWrites.Size() > 0 {
-		defer func() {
-			for p.pendingWrites.Size() > 0 {
-				w, _ := p.pendingWrites.Pop()
-				w(p)
-			}
-		}()
-	}
 
 	// Update display status based on LCDC bit 7
 	if p.display.IsEnabled() {
@@ -134,13 +122,11 @@ func (p *PPU) GetDisplay() *Display {
 // VRAM contains 0x2000 addressable bytes and contains the tile data (0x0000 - 0x17FF)
 // and the tile maps (map 1: 0x1800 - 0x1BFF, map 2: 0x1C00 - 0x1FFF)
 func (p *PPU) WriteVRam(address uint16, data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.vram[address] = data
+	p.vram[address] = data
 
-		if address < 0x1800 { // when we have written tile data, we have to update the tile set
-			ppu.updateTileSet(address)
-		}
-	})
+	if address < 0x1800 { // when we have written tile data, we have to update the tile set
+		p.updateTileSet(address)
+	}
 }
 
 func (p *PPU) ReadVRam(address uint16) byte {
@@ -148,9 +134,7 @@ func (p *PPU) ReadVRam(address uint16) byte {
 }
 
 func (p *PPU) WriteOAM(address uint16, data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.spriteFetcher.WriteOAM(address, data)
-	})
+	p.spriteFetcher.WriteOAM(address, data)
 }
 
 func (p *PPU) ReadOAM(address uint16) byte {
@@ -162,9 +146,7 @@ func (p *PPU) GetControl() byte {
 }
 
 func (p *PPU) SetControl(value byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.control = value
-	})
+	p.control = value
 }
 
 func (p *PPU) GetStatus() byte {
@@ -174,27 +156,25 @@ func (p *PPU) GetStatus() byte {
 // SetStatus sets the value of the status register. Only bits 3-6 (starting from 0)
 // are writable. Other bits will be ignored.
 func (p *PPU) SetStatus(data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		oldValue := ppu.status
+	oldValue := p.status
 
-		ppu.status &= 0x87        // turn bits 3-7 off (0x87 = 0b10000111)
-		ppu.status |= data & 0x78 // only take bits 3-6 from data (0x78 = 0b01111000)
+	p.status &= 0x87        // turn bits 3-7 off (0x87 = 0b10000111)
+	p.status |= data & 0x78 // only take bits 3-6 from data (0x78 = 0b01111000)
 
-		if !ppu.isEnabled() {
-			return
-		}
+	if !p.isEnabled() {
+		return
+	}
 
-		switch {
-		case !util.BitIsSet8(oldValue, 3) && util.BitIsSet8(ppu.status, 3) && ppu.state == hBlank:
-			ppu.interruptSink.RequestInterrupt(interrupts.LcdStat)
-		case !util.BitIsSet8(oldValue, 4) && util.BitIsSet8(ppu.status, 4) && ppu.state == vBlank:
-			ppu.interruptSink.RequestInterrupt(interrupts.LcdStat)
-		case !util.BitIsSet8(oldValue, 5) && util.BitIsSet8(ppu.status, 5) && ppu.state == oamScan:
-			ppu.interruptSink.RequestInterrupt(interrupts.LcdStat)
-		case !util.BitIsSet8(oldValue, 6) && util.BitIsSet8(ppu.status, 6) && util.BitIsSet8(ppu.status, 2):
-			ppu.interruptSink.RequestInterrupt(interrupts.LcdStat)
-		}
-	})
+	switch {
+	case !util.BitIsSet8(oldValue, 3) && util.BitIsSet8(p.status, 3) && p.state == hBlank:
+		p.interruptSink.RequestInterrupt(interrupts.LcdStat)
+	case !util.BitIsSet8(oldValue, 4) && util.BitIsSet8(p.status, 4) && p.state == vBlank:
+		p.interruptSink.RequestInterrupt(interrupts.LcdStat)
+	case !util.BitIsSet8(oldValue, 5) && util.BitIsSet8(p.status, 5) && p.state == oamScan:
+		p.interruptSink.RequestInterrupt(interrupts.LcdStat)
+	case !util.BitIsSet8(oldValue, 6) && util.BitIsSet8(p.status, 6) && util.BitIsSet8(p.status, 2):
+		p.interruptSink.RequestInterrupt(interrupts.LcdStat)
+	}
 }
 
 func (p *PPU) GetScrollY() byte {
@@ -202,9 +182,7 @@ func (p *PPU) GetScrollY() byte {
 }
 
 func (p *PPU) SetScrollY(data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.backgroundFetcher.SetScrollY(data)
-	})
+	p.backgroundFetcher.SetScrollY(data)
 }
 
 func (p *PPU) GetScrollX() byte {
@@ -212,9 +190,7 @@ func (p *PPU) GetScrollX() byte {
 }
 
 func (p *PPU) SetScrollX(data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.backgroundFetcher.SetScrollX(data)
-	})
+	p.backgroundFetcher.SetScrollX(data)
 }
 
 func (p *PPU) GetCurrentLine() byte {
@@ -226,9 +202,7 @@ func (p *PPU) GetCurrentLineCompare() byte {
 }
 
 func (p *PPU) SetCurrentLineCompare(data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.currentLineCompare = data
-	})
+	p.currentLineCompare = data
 }
 
 // GetBackgroundPalette returns the value as byte by constructing it from the 4 indices of the palette array
@@ -238,12 +212,10 @@ func (p *PPU) GetBackgroundPalette() byte {
 
 // SetBackgroundPalette splits the given value directly into the palette array to allow for easier access while rendering
 func (p *PPU) SetBackgroundPalette(data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.bgPalette[3] = data & 0xC0 >> 6
-		ppu.bgPalette[2] = data & 0x30 >> 4
-		ppu.bgPalette[1] = data & 0x0C >> 2
-		ppu.bgPalette[0] = data & 0x03
-	})
+	p.bgPalette[3] = data & 0xC0 >> 6
+	p.bgPalette[2] = data & 0x30 >> 4
+	p.bgPalette[1] = data & 0x0C >> 2
+	p.bgPalette[0] = data & 0x03
 }
 
 // GetObjectPalette0 returns the value as byte by constructing it from the 4 indices of the palette array
@@ -253,12 +225,10 @@ func (p *PPU) GetObjectPalette0() byte {
 
 // SetObjectPalette0 splits the given value directly into the palette array to allow for easier access while rendering
 func (p *PPU) SetObjectPalette0(data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.objPalettes[0][3] = data & 0xC0 >> 6
-		ppu.objPalettes[0][2] = data & 0x30 >> 4
-		ppu.objPalettes[0][1] = data & 0x0C >> 2
-		ppu.objPalettes[0][0] = data & 0x03
-	})
+	p.objPalettes[0][3] = data & 0xC0 >> 6
+	p.objPalettes[0][2] = data & 0x30 >> 4
+	p.objPalettes[0][1] = data & 0x0C >> 2
+	p.objPalettes[0][0] = data & 0x03
 }
 
 // GetObjectPalette1 returns the value as byte by constructing it from the 4 indices of the palette array
@@ -268,12 +238,10 @@ func (p *PPU) GetObjectPalette1() byte {
 
 // SetObjectPalette1 splits the given value directly into the palette array to allow for easier access while rendering
 func (p *PPU) SetObjectPalette1(data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.objPalettes[1][3] = data & 0xC0 >> 6
-		ppu.objPalettes[1][2] = data & 0x30 >> 4
-		ppu.objPalettes[1][1] = data & 0x0C >> 2
-		ppu.objPalettes[1][0] = data & 0x03
-	})
+	p.objPalettes[1][3] = data & 0xC0 >> 6
+	p.objPalettes[1][2] = data & 0x30 >> 4
+	p.objPalettes[1][1] = data & 0x0C >> 2
+	p.objPalettes[1][0] = data & 0x03
 }
 
 func (p *PPU) GetWindowY() byte {
@@ -281,9 +249,7 @@ func (p *PPU) GetWindowY() byte {
 }
 
 func (p *PPU) SetWindowY(data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.backgroundFetcher.SetWindowY(data)
-	})
+	p.backgroundFetcher.SetWindowY(data)
 }
 
 func (p *PPU) GetWindowX() byte {
@@ -291,9 +257,7 @@ func (p *PPU) GetWindowX() byte {
 }
 
 func (p *PPU) SetWindowX(data byte) {
-	p.pendingWrites.Push(func(ppu *PPU) {
-		ppu.backgroundFetcher.SetWindowX(data)
-	})
+	p.backgroundFetcher.SetWindowX(data)
 }
 
 // doCompareLYCAndLC compares the LYC and LC register.

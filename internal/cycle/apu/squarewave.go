@@ -128,7 +128,7 @@ func (sq *SquareWave) GetNRx1() byte {
 // SetNRx2 controls the volume envelope of this channel
 func (sq *SquareWave) SetNRx2(data byte) {
 	sq.volumeEnvelope.Write(data)
-	if !sq.volumeEnvelope.IsEnabled() {
+	if sq.enabled && !sq.volumeEnvelope.IsEnabled() {
 		sq.Disable()
 	}
 }
