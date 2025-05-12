@@ -77,6 +77,9 @@ func (sq *SquareWave) EnvelopeTick() {
 }
 
 func (sq *SquareWave) Trigger() {
+	if !sq.volumeEnvelope.IsEnabled() {
+		return
+	}
 	sq.enabled = true
 	sq.dutyPosition = 0
 	sq.currentSample = 0
@@ -143,15 +146,14 @@ func (sq *SquareWave) SetNRx3(data byte) {
 
 // SetNRx4 sets the high bits of the period, enables the length timer and triggers the channel
 func (sq *SquareWave) SetNRx4(data byte) {
-
-	if util.BitIsSet8(data, 7) {
-		sq.Trigger()
-	}
-
 	sq.lengthEnable = util.BitIsSet8(data, 6)
 
 	sq.period &= 0x00FF
 	sq.period |= uint(data&0x7) << 8
+
+	if util.BitIsSet8(data, 7) {
+		sq.Trigger()
+	}
 }
 
 func (sq *SquareWave) GetNRx4() byte {

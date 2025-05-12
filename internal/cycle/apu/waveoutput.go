@@ -51,9 +51,7 @@ func (w *WaveOutput) Tick() {
 
 	// Running through the bytes from top to bottom
 	var sample byte
-	if !w.dacOn {
-		sample = 0x0
-	} else if w.samplePosition%2 == 0 {
+	if w.samplePosition%2 == 0 {
 		sample = w.waveRAM[w.samplePosition/2] >> 4 // on even numbers take upper nibble
 	} else {
 		sample = w.waveRAM[w.samplePosition/2] & 0x0F // on odd numbers take lower nibble
@@ -88,11 +86,14 @@ func (w *WaveOutput) Trigger() {
 }
 
 func (w *WaveOutput) GetSample() byte {
+	if !w.dacOn {
+		return 0x0
+	}
 	return w.currentSample
 }
 
 func (w *WaveOutput) IsEnabled() bool {
-	return w.enabled
+	return w.dacOn
 }
 
 func (w *WaveOutput) Disable() {

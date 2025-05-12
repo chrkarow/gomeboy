@@ -7,6 +7,9 @@ type VolumeEnvelope struct {
 	increase  bool // NRx2 bit 3
 	sweepPace byte // NRx2 bits 2-0
 
+	triggeredPace     byte
+	triggeredIncrease bool
+
 	volume byte // Current calculated volume.
 
 	enabled     bool
@@ -28,13 +31,13 @@ func (e *VolumeEnvelope) Tick() {
 		return
 	}
 
-	e.periodTimer = e.sweepPace
+	e.periodTimer = e.triggeredPace
 
-	if (e.volume == 0xF && e.increase) || (e.volume == 0x0 && !e.increase) || e.sweepPace == 0 {
+	if (e.volume == 0xF && e.triggeredIncrease) || (e.volume == 0x0 && !e.triggeredIncrease) || e.triggeredPace == 0 {
 		return
 	}
 
-	if e.increase {
+	if e.triggeredIncrease {
 		e.volume++
 	} else {
 		e.volume--
@@ -45,6 +48,8 @@ func (e *VolumeEnvelope) Trigger() {
 	if !e.enabled {
 		return
 	}
+	e.triggeredIncrease = e.increase
+	e.triggeredPace = e.sweepPace
 	e.periodTimer = e.sweepPace
 	e.volume = e.initial
 }
@@ -53,10 +58,12 @@ func (e *VolumeEnvelope) Write(data byte) {
 	e.initial = data >> 4
 	e.increase = util.BitIsSet8(data, 3)
 	e.sweepPace = data & 0x7
-	e.enabled = e.initial != 0 && !e.increase
+	e.enabled = e.initial != 0 || e.increase
 	if !e.enabled {
 		e.volume = 0
 		e.periodTimer = 0
+		e.triggeredIncrease = false
+		e.triggeredPace = 0
 	}
 }
 
@@ -80,6 +87,8 @@ func (e *VolumeEnvelope) Disable() {
 	e.enabled = false
 	e.periodTimer = 0
 	e.ticks = 0
+	e.triggeredPace = 0
+	e.triggeredIncrease = false
 }
 
 func (e *VolumeEnvelope) IsEnabled() bool {

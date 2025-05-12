@@ -72,6 +72,9 @@ func (n *Noise) EnvelopeTick() {
 }
 
 func (n *Noise) Trigger() {
+	if !n.volumeEnvelope.IsEnabled() {
+		return
+	}
 	n.volumeEnvelope.Trigger()
 	n.lfsr = 0
 	n.enabled = true

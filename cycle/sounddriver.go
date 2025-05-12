@@ -14,6 +14,7 @@ type SoundDriver struct {
 	pl      *oto.Player
 	core    *emulation.Core
 	stopped bool
+	muted   bool
 }
 
 func NewSoundDriver(ctx *oto.Context, core *emulation.Core) *SoundDriver {
@@ -23,51 +24,56 @@ func NewSoundDriver(ctx *oto.Context, core *emulation.Core) *SoundDriver {
 	}
 }
 
-func (e *SoundDriver) Run() {
-	e.stopped = false
-	e.pl = e.ctx.NewPlayer(e)
-	e.pl.SetBufferSize(playerBufferSize)
-	e.pl.SetVolume(0)
-	e.pl.Play()
-	e.pl.SetVolume(1)
+func (d *SoundDriver) Run() {
+	d.stopped = false
+	d.pl = d.ctx.NewPlayer(d)
+	d.pl.SetBufferSize(playerBufferSize)
+	d.pl.SetVolume(0)
+	d.pl.Play()
+	d.pl.SetVolume(1)
 }
 
-func (e *SoundDriver) TogglePause() {
-	if e.IsPaused() {
-		e.pl.Play()
+func (d *SoundDriver) TogglePause() {
+	if d.IsPaused() {
+		d.pl.Play()
 	} else {
-		e.pl.Pause()
+		d.pl.Pause()
 	}
 }
 
-func (e *SoundDriver) IsPaused() bool {
-	return e.pl != nil && !e.pl.IsPlaying()
+func (d *SoundDriver) IsPaused() bool {
+	return d.pl != nil && !d.pl.IsPlaying()
 }
 
-func (e *SoundDriver) Stop() {
-	e.stopped = true
-	e.pl.SetVolume(0)
-	e.pl.Pause()
-	err := e.pl.Close()
+func (d *SoundDriver) Stop() {
+	d.stopped = true
+	d.pl.SetVolume(0)
+	d.pl.Pause()
+	err := d.pl.Close()
 	if err != nil {
 		panic(err)
 	}
-	e.pl = nil
-	e.core.SaveGame()
-	e.core.Reset()
+	d.pl = nil
+	d.core.SaveGame()
+	d.core.Reset()
 }
 
-func (e *SoundDriver) GetCore() *emulation.Core {
-	return e.core
+func (d *SoundDriver) GetCore() *emulation.Core {
+	return d.core
 }
 
-func (e *SoundDriver) Read(buffer []byte) (int, error) {
+func (d *SoundDriver) Read(buffer []byte) (int, error) {
 	for i := 0; i < readAhead; {
-		if e.stopped {
+		if d.stopped {
 			return 0, io.EOF
 		}
 
-		left, right, play := e.core.Tick()
+		left, right, play := d.core.Tick()
+		if d.muted {
+			left = 0x0
+			right = 0x0
+		}
+
 		if play {
 			buffer[i] = left
 			buffer[i+1] = right
@@ -75,4 +81,8 @@ func (e *SoundDriver) Read(buffer []byte) (int, error) {
 		}
 	}
 	return readAhead, nil
+}
+
+func (d *SoundDriver) ToggleMute() {
+	d.muted = !d.muted
 }

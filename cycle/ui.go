@@ -54,6 +54,7 @@ type UserInterface struct {
 	stopAction  *widget.ToolbarAction
 	pauseAction *widget.ToolbarAction
 	playAction  *widget.ToolbarAction
+	muteAction  *widget.ToolbarAction
 
 	driver emulation.Driver
 }
@@ -91,9 +92,13 @@ func (ui *UserInterface) initialize() {
 	ui.pauseAction = widget.NewToolbarAction(theme.MediaPauseIcon(), ui.handlePause)
 	ui.pauseAction.Disable()
 
+	ui.muteAction = widget.NewToolbarAction(theme.VolumeMuteIcon(), ui.handleMute)
+
 	toolBar := widget.NewToolbar(
 		ui.openAction,
 		widget.NewToolbarSpacer(),
+		ui.muteAction,
+		widget.NewToolbarSeparator(),
 		ui.playAction,
 		ui.pauseAction,
 		ui.stopAction,
@@ -186,6 +191,17 @@ func (ui *UserInterface) handlePlay() {
 		ui.driver.TogglePause()
 	} else {
 		ui.driver.Run()
+	}
+}
+
+func (ui *UserInterface) handleMute() {
+	if ui.muteAction.Icon == theme.VolumeMuteIcon() {
+		ui.muteAction.SetIcon(theme.VolumeUpIcon())
+	} else {
+		ui.muteAction.SetIcon(theme.VolumeMuteIcon())
+	}
+	if d, ok := ui.driver.(*SoundDriver); ok {
+		d.ToggleMute()
 	}
 }
 

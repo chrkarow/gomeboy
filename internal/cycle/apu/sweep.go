@@ -54,7 +54,7 @@ func (s *SweepableSquareWave) SweepTick() {
 		newPeriod, overflow := s.calculateNewPeriod()
 
 		if overflow {
-			s.squareWave.enabled = false
+			s.squareWave.Disable()
 		}
 
 		if s.individualStep != 0 {
@@ -62,7 +62,7 @@ func (s *SweepableSquareWave) SweepTick() {
 			s.shadowPeriod = newPeriod
 
 			if _, o := s.calculateNewPeriod(); o {
-				s.squareWave.enabled = false
+				s.squareWave.Disable()
 			}
 		}
 	}
@@ -73,8 +73,6 @@ func (s *SweepableSquareWave) GetSample() byte {
 }
 
 func (s *SweepableSquareWave) Trigger() {
-	s.squareWave.Trigger()
-
 	s.shadowPeriod = s.squareWave.period
 	if s.pace == 0 {
 		s.sweepTimer = 0x8
@@ -85,7 +83,7 @@ func (s *SweepableSquareWave) Trigger() {
 
 	if s.individualStep != 0x0 {
 		if _, overflow := s.calculateNewPeriod(); overflow {
-			s.squareWave.enabled = false
+			s.squareWave.Disable()
 		}
 	}
 }
@@ -113,7 +111,7 @@ func (s *SweepableSquareWave) calculateNewPeriod() (newPeriod uint, overflow boo
 		newPeriod = s.shadowPeriod + periodAdj
 	}
 
-	if newPeriod > 2047 {
+	if newPeriod > 0x7FF {
 		overflow = true
 	}
 
@@ -155,10 +153,10 @@ func (s *SweepableSquareWave) SetNRx3(data byte) {
 }
 
 func (s *SweepableSquareWave) SetNRx4(data byte) {
+	s.squareWave.SetNRx4(data)
 	if util.BitIsSet8(data, 7) {
 		s.Trigger()
 	}
-	s.squareWave.SetNRx4(data)
 }
 
 func (s *SweepableSquareWave) GetNRx4() byte {
