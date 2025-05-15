@@ -71,7 +71,9 @@ func (e *Core) Tick() (left byte, right byte, play bool) {
 }
 
 func (e *Core) SaveGame() {
-	e.memory.GetGameCartridge().Save()
+	if e.memory.GetGameCartridge() != nil {
+		e.memory.GetGameCartridge().Save()
+	}
 }
 
 func (e *Core) KeyPressed(index byte) {

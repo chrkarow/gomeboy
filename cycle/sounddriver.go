@@ -34,6 +34,10 @@ func (d *SoundDriver) Run() {
 }
 
 func (d *SoundDriver) TogglePause() {
+	if d.pl == nil {
+		return
+	}
+
 	if d.IsPaused() {
 		d.pl.Play()
 	} else {
@@ -69,10 +73,6 @@ func (d *SoundDriver) Read(buffer []byte) (int, error) {
 		}
 
 		left, right, play := d.core.Tick()
-		if d.muted {
-			left = 0x0
-			right = 0x0
-		}
 
 		if play {
 			buffer[i] = left
@@ -84,5 +84,13 @@ func (d *SoundDriver) Read(buffer []byte) (int, error) {
 }
 
 func (d *SoundDriver) ToggleMute() {
-	d.muted = !d.muted
+	if d.pl == nil {
+		return
+	}
+
+	if d.pl.Volume() == 1 {
+		d.pl.SetVolume(0)
+	} else {
+		d.pl.SetVolume(1)
+	}
 }
