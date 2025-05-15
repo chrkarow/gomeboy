@@ -68,14 +68,15 @@ func newMBC3(rom *[]byte, ramSize int, getNow nowProvider) Cartridge {
 }
 
 func (mbc *mbc3) ReadROM(address uint16) byte {
-	if address > 0x7FFF {
+	if address >= 0x8000 {
 		log.L().Panic("Invalid ROM read", log.Uint16("address", address))
 	}
 	switch {
 	case address < 0x4000:
 		return (*mbc.rom)[address&uint16(len(*mbc.rom)-1)]
 	case address < 0x8000:
-		physicalAddress := (uint32(mbc.romb)<<14 | uint32(address&0x3FFF)) & uint32(len(*mbc.rom)-1)
+		bankOffset := uint32(mbc.romb) << 14
+		physicalAddress := bankOffset | uint32(address&0x3FFF)
 		return (*mbc.rom)[physicalAddress]
 	default:
 		log.L().Panic("Invalid ROM read", log.Uint16("address", address))
@@ -90,7 +91,7 @@ func (mbc *mbc3) HandleBanking(address uint16, data byte) {
 		mbc.ramRtcEnabled = data&0x0F == 0x0A
 
 	case address < 0x4000: // ROM bank
-		mbc.romb = data & 0x80 // lower 7 bits count
+		mbc.romb = data
 
 		// lower 7 bits must never be all zeroes
 		if mbc.romb == 0 {

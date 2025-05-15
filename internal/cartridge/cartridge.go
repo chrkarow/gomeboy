@@ -87,5 +87,8 @@ func createCartridge(data *[]byte) Cartridge {
 }
 
 func getCartridgeName(rom *[]byte) string {
-	return strings.ToLower(strings.TrimFunc(string((*rom)[0x134:0x13F]), func(r rune) bool { return !unicode.IsPrint(r) }))
+	return strings.ReplaceAll(
+		strings.ToLower(strings.TrimFunc(string((*rom)[0x134:0x13F]), func(r rune) bool { return !unicode.IsPrint(r) })),
+		" ",
+		"_")
 }

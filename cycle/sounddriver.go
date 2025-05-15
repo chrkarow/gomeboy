@@ -7,7 +7,7 @@ import (
 )
 
 const playerBufferSize = 4096
-const readAhead = 1024
+const readAhead = 512
 
 type SoundDriver struct {
 	ctx     *oto.Context
