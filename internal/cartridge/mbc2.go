@@ -3,7 +3,6 @@ package cartridge
 import (
 	"gameboy-emulator/internal/util"
 	log "go.uber.org/zap"
-	"os"
 )
 
 // MBC2 supports ROM sizes up to 2 Mbit (16 banks of 0x4000 bytes) and includes an internal
@@ -11,20 +10,20 @@ import (
 //
 // Source: docs/gbctr.pdf page 142 ff
 type mbc2 struct {
-	rom            *[]byte
-	ram            [0x200]byte
+	*cartridgeCore
+
 	currentROMBank byte
 	ramEnabled     bool
-	name           string
 }
 
-func newMBC2(rom *[]byte) Cartridge {
-	return &mbc2{
-		rom:            rom,
+func newMBC2(core *cartridgeCore) Cartridge {
+	m := &mbc2{
+		cartridgeCore:  core,
 		currentROMBank: 1,
 		ramEnabled:     false,
-		name:           getCartridgeName(rom),
 	}
+	m.cartridgeCore.ram = make([]byte, 0x200) // MBC2 always has 0x200 bytes of RAM
+	return m
 }
 
 func (mbc *mbc2) ReadROM(address uint16) byte {
@@ -85,28 +84,4 @@ func (mbc *mbc2) ReadRAM(address uint16) byte {
 
 	// MBC2 only has 0x200 byte of RAM, that's why only the lower 9 bits of the address are used
 	return mbc.ram[address&0x1FF]
-}
-
-func (mbc *mbc2) Save() {
-	// If RAM is completely empty (= all zeroes) don't save
-	if util.IsEmpty(mbc.ram[:]) {
-		return
-	}
-
-	err := os.WriteFile(mbc.name+".sgo", mbc.ram[:], 0644)
-	if err != nil {
-		log.L().Error("Error writing save file", log.Error(err))
-		return
-	}
-}
-
-func (mbc *mbc2) load() {
-	data, err := os.ReadFile(mbc.name + ".sgo")
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.L().Error("Error reading save file", log.Error(err))
-		}
-		return
-	}
-	mbc.ram = [512]byte(data)
 }

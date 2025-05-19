@@ -26,8 +26,8 @@ type (
 	nowProvider func() time.Time
 
 	mbc3 struct {
-		rom           *[]byte
-		ram           []byte
+		*cartridgeCore
+
 		romb          byte
 		rambRtc       byte
 		rtcLatchHigh  bool
@@ -49,19 +49,16 @@ type (
 		getNow     nowProvider
 		ticker     *time.Ticker
 		stopTicker chan bool
-		name       string
 	}
 )
 
-func newMBC3(rom *[]byte, ramSize int, getNow nowProvider) Cartridge {
+func newMBC3(core *cartridgeCore, getNow nowProvider) Cartridge {
 	mbc := &mbc3{
-		rom:        rom,
-		ram:        make([]byte, ramSize),
-		romb:       1,
-		lastUpdate: getNow().UTC(),
-		getNow:     getNow,
-		stopTicker: make(chan bool),
-		name:       getCartridgeName(rom),
+		cartridgeCore: core,
+		romb:          1,
+		lastUpdate:    getNow().UTC(),
+		getNow:        getNow,
+		stopTicker:    make(chan bool),
 	}
 	mbc.startRTC()
 	return mbc
@@ -289,18 +286,23 @@ func (mbc *mbc3) tick() {
 }
 
 func (mbc *mbc3) Save() {
+	// If RAM is completely empty (= all zeroes) don't save
+	if util.IsEmpty(mbc.ram) {
+		return
+	}
+
 	saveState := mbc.ram[:]
 	saveState = append(saveState, mbc.shadowRtcS, mbc.shadowRtcM, mbc.shadowRtcH, mbc.shadowRtcDL, mbc.shadowRtcDH)
 	saveState = append(saveState, []byte(mbc.lastUpdate.Format(time.DateTime))...)
 
-	err := os.WriteFile(mbc.name+".sgo", mbc.ram, 0644)
+	err := os.WriteFile(mbc.saveGamePath, mbc.ram, 0644)
 	if err != nil {
 		log.L().Error("Error writing save file", log.Error(err))
 	}
 }
 
 func (mbc *mbc3) load() {
-	data, err := os.ReadFile(mbc.name + ".sgo")
+	data, err := os.ReadFile(mbc.saveGamePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			log.L().Error("Error reading save file", log.Error(err))

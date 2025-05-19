@@ -10,12 +10,13 @@ import (
 // be connected at $A000-BFFF, using a discrete logic decoder
 // in place of a full MBC chip.
 type noMBC struct {
-	rom *[]byte
-	ram [0x2000]byte
+	*cartridgeCore
 }
 
-func newNoMBC(rom *[]byte) Cartridge {
-	return &noMBC{rom: rom}
+func newNoMBC(core *cartridgeCore) Cartridge {
+	n := &noMBC{cartridgeCore: core}
+	n.ram = make([]byte, 0x2000)
+	return n
 }
 
 func (mbc *noMBC) ReadROM(address uint16) byte {
@@ -35,12 +36,4 @@ func (mbc *noMBC) WriteRAM(address uint16, data byte) {
 
 func (mbc *noMBC) ReadRAM(address uint16) byte {
 	return mbc.ram[address]
-}
-
-func (mbc *noMBC) Save() {
-	// Nothing to do here
-}
-
-func (mbc *noMBC) load() {
-	// Nothing to do here
 }

@@ -1,27 +1,22 @@
 package cartridge
 
 import (
-	"gameboy-emulator/internal/util"
 	log "go.uber.org/zap"
-	"os"
 )
 
 type mbc5 struct {
-	rom        *[]byte
-	ram        []byte
+	*cartridgeCore
+
 	romb0      byte
 	romb1      byte
 	ramb       byte
 	ramEnabled bool
-	name       string
 }
 
-func newMBC5(rom *[]byte, ramSize int) Cartridge {
+func newMBC5(core *cartridgeCore) Cartridge {
 	return &mbc5{
-		rom:   rom,
-		ram:   make([]byte, ramSize),
-		romb0: 1,
-		name:  getCartridgeName(rom),
+		cartridgeCore: core,
+		romb0:         1,
 	}
 }
 
@@ -84,28 +79,4 @@ func (mbc *mbc5) ReadRAM(address uint16) byte {
 	physicalAddress := (uint16(mbc.ramb)<<13 | address&0x1FFF) & uint16(len(mbc.ram)-1)
 
 	return mbc.ram[physicalAddress]
-}
-
-func (mbc *mbc5) Save() {
-	// If RAM is completely empty (= all zeroes) don't save
-	if util.IsEmpty(mbc.ram) {
-		return
-	}
-
-	err := os.WriteFile(mbc.name+".sgo", mbc.ram, 0644)
-	if err != nil {
-		log.L().Error("Error writing save file", log.Error(err))
-		return
-	}
-}
-
-func (mbc *mbc5) load() {
-	data, err := os.ReadFile(mbc.name + ".sgo")
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.L().Error("Error reading save file", log.Error(err))
-		}
-		return
-	}
-	mbc.ram = data
 }
