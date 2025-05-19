@@ -28,5 +28,6 @@ go.work.sum
 .idea
 *.iml
 roms
+misc
 !roms/.gitkeep
 *.sgo
